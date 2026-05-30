@@ -1,0 +1,11 @@
+# Godot
+.godot/
+*.uid
+*.import
+export_presets.cfg
+android/
+*.translation
+
+# OS
+.DS_Store
+Thumbs.db
