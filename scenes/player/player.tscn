@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1"]
 [ext_resource type="Script" path="res://scenes/player/soldier_visual.gd" id="2"]
 [ext_resource type="Script" path="res://scenes/player/gun_visual.gd" id="3"]
+[ext_resource type="Script" path="res://scenes/player/arm_visual.gd" id="4"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
 radius = 12.0
@@ -34,6 +35,10 @@ position = Vector2(39, 0)
 
 [node name="GunSprite" type="Node2D" parent="GunPivot"]
 script = ExtResource("3")
+
+[node name="GunArm" type="Node2D" parent="GunPivot"]
+z_index = 1
+script = ExtResource("4")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 1
@@ -67,3 +72,12 @@ offset_right = 210.0
 offset_bottom = 70.0
 text = "30 / 150"
 theme_override_colors/font_color = Color(0.9, 0.85, 0.6, 1.0)
+
+[node name="WeaponLabel" type="Label" parent="HUD"]
+offset_left = 10.0
+offset_top = 72.0
+offset_right = 210.0
+offset_bottom = 88.0
+text = "Assault Rifle"
+theme_override_colors/font_color = Color(0.7, 0.9, 0.7, 1.0)
+theme_override_font_sizes/font_size = 11

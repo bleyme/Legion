@@ -1,4 +1,6 @@
-[gd_scene load_steps=10 format=3 uid="uid://map001"]
+[gd_scene load_steps=11 format=3 uid="uid://map001"]
+
+[ext_resource type="PackedScene" path="res://scenes/weapons/weapon_pickup.tscn" id="pickup"]
 
 [sub_resource type="RectangleShape2D" id="Shape_ground"]
 size = Vector2(1280, 32)
@@ -127,3 +129,19 @@ offset_top = -10.0
 offset_right = 80.0
 offset_bottom = 10.0
 color = Color(0.2, 0.22, 0.28, 1.0)
+
+[node name="PickupRifle" parent="." instance=ExtResource("pickup")]
+position = Vector2(640, 405)
+weapon_type = 0
+
+[node name="PickupShotgun" parent="." instance=ExtResource("pickup")]
+position = Vector2(120, 535)
+weapon_type = 1
+
+[node name="PickupSniper" parent="." instance=ExtResource("pickup")]
+position = Vector2(1120, 275)
+weapon_type = 2
+
+[node name="PickupGrenade" parent="." instance=ExtResource("pickup")]
+position = Vector2(200, 275)
+weapon_type = 3
