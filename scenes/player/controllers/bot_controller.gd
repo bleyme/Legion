@@ -82,7 +82,7 @@ func _think(p: Player) -> void:
 	var best_score := INF
 	var best_vis := false
 	for other in Game.active_players():
-		if other == p or other.dead:
+		if other.dead or not Game.is_enemy(p, other):
 			continue
 		var d: float = origin.distance_to(other.global_position)
 		var vis := AimAssist.has_los(p, origin, other.global_position + Vector2(0, -6))

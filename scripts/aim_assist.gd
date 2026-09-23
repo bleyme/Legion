@@ -12,7 +12,7 @@ static func best_target(p: Player, max_dist: float, dir := Vector2.ZERO, cone :=
 	var best: Player = null
 	var best_score := INF
 	for other in Game.active_players():
-		if other == p or other.dead:
+		if other.dead or not Game.is_enemy(p, other):
 			continue
 		var to: Vector2 = other.global_position - origin
 		var d := to.length()

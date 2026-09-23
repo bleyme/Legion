@@ -24,13 +24,19 @@ const SLOT_PAD := "pad"
 const SLOT_BOT := "bot"
 
 var slots: Array = [
-	{"type": SLOT_KBM, "device": 0, "level": 1},
-	{"type": SLOT_BOT, "device": 0, "level": 1},
-	{"type": SLOT_BOT, "device": 0, "level": 1},
-	{"type": SLOT_OFF, "device": 0, "level": 1},
-	{"type": SLOT_OFF, "device": 0, "level": 1},
-	{"type": SLOT_OFF, "device": 0, "level": 1},
+	{"type": SLOT_KBM, "device": 0, "level": 1, "team": 0},
+	{"type": SLOT_BOT, "device": 0, "level": 1, "team": 1},
+	{"type": SLOT_BOT, "device": 0, "level": 1, "team": 1},
+	{"type": SLOT_OFF, "device": 0, "level": 1, "team": 0},
+	{"type": SLOT_OFF, "device": 0, "level": 1, "team": 0},
+	{"type": SLOT_OFF, "device": 0, "level": 1, "team": 1},
 ]
+const MODE_FFA := "ffa"
+const MODE_TDM := "tdm"
+const TEAM_COLORS := [Color(1.0, 0.38, 0.3), Color(0.32, 0.62, 1.0)]
+const TEAM_NAMES := ["ROUGE", "BLEUE"]
+
+var mode := MODE_FFA
 var map_index  := 0
 var frag_limit := 15
 var time_limit := 300.0   # seconds, 0 = unlimited
@@ -72,6 +78,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		else:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+func teams() -> bool:
+	return mode == MODE_TDM and not demo
+
+## True if `b` is someone `a` should shoot at.
+func is_enemy(a: Node, b: Node) -> bool:
+	if a == b or a == null or b == null:
+		return false
+	return a.team < 0 or a.team != b.team
 
 func active_players() -> Array:
 	if world and world.has_method("get_players"):
@@ -145,6 +160,7 @@ func save_settings() -> void:
 	cfg.set_value("match", "map_index", map_index)
 	cfg.set_value("match", "frag_limit", frag_limit)
 	cfg.set_value("match", "time_limit", time_limit)
+	cfg.set_value("match", "mode", mode)
 	cfg.save(SETTINGS_PATH)
 
 func load_settings() -> void:
@@ -157,3 +173,7 @@ func load_settings() -> void:
 	map_index = int(cfg.get_value("match", "map_index", map_index))
 	frag_limit = int(cfg.get_value("match", "frag_limit", frag_limit))
 	time_limit = float(cfg.get_value("match", "time_limit", time_limit))
+	mode = str(cfg.get_value("match", "mode", mode))
+	for i in slots.size():
+		if not slots[i].has("team"):
+			slots[i]["team"] = i % 2

@@ -164,11 +164,21 @@ func _draw_timer(world: Node, vs: Vector2) -> void:
 		col = Color(1.0, 0.4, 0.3)
 	draw_rect(Rect2(cx - 70, 8, 140, 44), Color(0.03, 0.04, 0.07, 0.7))
 	_text(Vector2(cx - 70, 34), text, 24, col, HORIZONTAL_ALIGNMENT_CENTER, 140)
+	if world.teams:
+		for t in 2:
+			var tc: Color = Game.TEAM_COLORS[t]
+			var bx := cx - 70 - 84 if t == 0 else cx + 70 + 4
+			draw_rect(Rect2(bx, 8, 80, 44), Color(tc.r, tc.g, tc.b, 0.25))
+			draw_rect(Rect2(bx, 8 if t == 0 else 8, 80, 3), tc)
+			_text(Vector2(bx, 42), str(world.team_scores[t]), 28, tc.lightened(0.3), HORIZONTAL_ALIGNMENT_CENTER, 80)
 	_text(Vector2(cx - 70, 48), "Objectif : %d frags" % Game.frag_limit if Game.frag_limit > 0 else "Sans limite", 11, UITheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 140, 0)
 
 func _draw_scoreboard(players: Array, vs: Vector2) -> void:
 	var sorted := players.duplicate()
-	sorted.sort_custom(func(a, b): return a.kills > b.kills or (a.kills == b.kills and a.deaths < b.deaths))
+	sorted.sort_custom(func(a, b):
+		if a.team != b.team:
+			return a.team < b.team
+		return a.kills > b.kills or (a.kills == b.kills and a.deaths < b.deaths))
 	var w := 190.0
 	var x := vs.x - w - 12
 	var y := 12.0
@@ -280,15 +290,16 @@ func _draw_offscreen(players: Array, humans: Array, vs: Vector2) -> void:
 	if humans.is_empty():
 		return
 	var xf := get_viewport().get_canvas_transform()
-	var screen := Rect2(Vector2.ZERO, vs).grow(-30)
-	var center := vs * 0.5
+	# Keep arrows clear of the timer at the top and the player cards at the bottom.
+	var screen := Rect2(30, 70, vs.x - 60, vs.y - 70 - CARD_SIZE.y - 30)
+	var center := screen.get_center()
 	for p in players:
-		if p.dead or (p.is_human and humans.size() > 1):
+		if p.dead or humans.has(p):
 			continue
-		if humans.has(p):
+		if not humans.any(func(h): return Game.is_enemy(h, p)):
 			continue
 		var sp: Vector2 = xf * p.global_position
-		if screen.grow(20).has_point(sp):
+		if Rect2(Vector2.ZERO, vs).grow(-10).has_point(sp):
 			continue
 		var dir := (sp - center).normalized()
 		# intersect ray from center with the inset screen rect

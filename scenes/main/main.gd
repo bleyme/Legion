@@ -21,6 +21,8 @@ var arena: Node2D
 var players: Array = []
 var pickups: Array = []
 var time_left := -1.0
+var team_scores := [0, 0]
+var teams := false
 var match_over := false
 var first_blood := false
 var _demo := false
@@ -36,6 +38,7 @@ var _slowmo := 0.0
 
 func _ready() -> void:
 	_demo = Game.demo
+	teams = Game.teams()
 	Game.world = self
 	Engine.time_scale = 1.0
 	var maps := MapData.all()
@@ -164,8 +167,15 @@ func _spawn_players() -> void:
 			nm = "J%d" % human_n
 		else:
 			nm = names[idx % names.size()]
-		p.setup(idx + 1, nm, Game.PLAYER_COLORS[idx % Game.PLAYER_COLORS.size()], ctrl, human, mouse)
+		var col: Color = Game.PLAYER_COLORS[idx % Game.PLAYER_COLORS.size()]
+		if teams:
+			p.team = int(s.get("team", idx % 2))
+			var mates := players.filter(func(o): return o.team == p.team).size()
+			col = Game.TEAM_COLORS[p.team].lightened(mates * 0.12)
+		p.setup(idx + 1, nm, col, ctrl, human, mouse)
 		p.swap_hint = hint
+		if s["type"] == Game.SLOT_PAD:
+			p.pad_device = int(s.get("device", 0))
 		_player_root.add_child(p)
 		p.died.connect(_on_player_died)
 		players.append(p)
@@ -178,7 +188,7 @@ func _pick_spawn(p: Player) -> Vector2:
 	for sp in arena.spawns:
 		var min_d := 99999.0
 		for other in players:
-			if other == p or other.dead:
+			if other.dead or not Game.is_enemy(p, other):
 				continue
 			min_d = minf(min_d, other.global_position.distance_to(sp))
 		if now - int(_recent_spawns.get(sp, -10000)) < 1500:
@@ -250,6 +260,8 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 	if k and k != victim:
 		victim.killed_by = k.display_name
 		k.kills += 1
+		if teams:
+			team_scores[k.team] += 1
 		k.streak += 1
 		k.best_streak = maxi(k.best_streak, k.streak)
 		k.multi_kills = k.multi_kills + 1 if k.multi_timer > 0.0 else 1
@@ -259,13 +271,16 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 		_announce_kill(k, victim, headshot)
 		if k.is_human or victim.is_human:
 			_hitstop_now(0.06)
-		if Game.frag_limit > 0 and k.kills >= Game.frag_limit and not _demo:
+		var score: int = team_scores[k.team] if teams else k.kills
+		if Game.frag_limit > 0 and score >= Game.frag_limit and not _demo:
 			_end_match()
 		elif _demo and k.kills >= 25:
 			for p in players:
 				p.kills = 0
 	else:
 		victim.kills = maxi(0, victim.kills - 1)
+		if teams:
+			team_scores[victim.team] = maxi(0, team_scores[victim.team] - 1)
 		if victim.is_human:
 			_hud.announce("SUICIDE", Color(0.8, 0.8, 0.8), "-1 frag", 1.4)
 
@@ -306,9 +321,15 @@ func _end_match() -> void:
 		p.input = PlayerInput.new()
 	_slowmo = 1.2
 	Engine.time_scale = 0.25
-	var winner := _ranking()[0] as Player
-	_hud.announce("FIN DU MATCH", UITheme.ACCENT, "%s l'emporte !" % winner.display_name, 2.0)
+	_hud.announce("FIN DU MATCH", UITheme.ACCENT, _winner_text(), 2.0)
 	SoundManager.play("announce", Vector2.INF, -4.0)
+
+func _winner_text() -> String:
+	if teams:
+		if team_scores[0] == team_scores[1]:
+			return "Égalité !"
+		return "L'équipe %s l'emporte !" % Game.TEAM_NAMES[0 if team_scores[0] > team_scores[1] else 1].to_lower()
+	return "%s l'emporte !" % _ranking()[0].display_name
 
 func _ranking() -> Array:
 	var sorted := players.duplicate()
@@ -393,8 +414,14 @@ func _show_end() -> void:
 	var ranking := _ranking()
 	var winner: Player = ranking[0]
 	var tie: bool = ranking.size() > 1 and ranking[1].kills == winner.kills and ranking[1].deaths == winner.deaths
-	var title := UITheme.label("ÉGALITÉ !" if tie else "%s GAGNE !" % winner.display_name.to_upper(), 44,
-		UITheme.ACCENT if tie else winner.color.lightened(0.25))
+	var title_text := "ÉGALITÉ !" if tie else "%s GAGNE !" % winner.display_name.to_upper()
+	var title_col := UITheme.ACCENT if tie else winner.color.lightened(0.25)
+	if teams:
+		tie = team_scores[0] == team_scores[1]
+		var wt := 0 if team_scores[0] > team_scores[1] else 1
+		title_text = "ÉGALITÉ %d – %d" % team_scores if tie else "ÉQUIPE %s GAGNE %d – %d" % [Game.TEAM_NAMES[wt], team_scores[wt], team_scores[1 - wt]]
+		title_col = UITheme.ACCENT if tie else Game.TEAM_COLORS[wt]
+	var title := UITheme.label(title_text, 44, title_col)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
@@ -406,7 +433,7 @@ func _show_end() -> void:
 		grid.add_child(UITheme.label(h, 15, UITheme.DIM))
 	for i in ranking.size():
 		var p: Player = ranking[i]
-		var acc := "-" if p.shots == 0 else "%d%%" % int(100.0 * p.hits / p.shots)
+		var acc := "-" if p.shots == 0 else "%d%%" % mini(100, int(100.0 * p.hits / p.shots))
 		var ratio := "%.2f" % (float(p.kills) / maxf(1.0, p.deaths))
 		var cells := [str(i + 1), p.display_name, str(p.kills), str(p.deaths), ratio, str(p.best_streak), acc]
 		for c in cells.size():

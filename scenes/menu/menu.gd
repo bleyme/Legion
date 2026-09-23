@@ -22,6 +22,10 @@ const FRAG_CHOICES := [5, 10, 15, 20, 30, 0]
 const TIME_CHOICES := [120.0, 180.0, 300.0, 600.0, 0.0]
 
 var _slot_buttons: Array[OptionButton] = []
+var _team_buttons: Array[Button] = []
+var _slot_teams: Array[int] = []
+var _mode_button: OptionButton
+var _swatches: Array[ColorRect] = []
 var _map_button: OptionButton
 var _map_desc: Label
 var _frag_button: OptionButton
@@ -111,12 +115,27 @@ func _build_ui() -> void:
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 8)
 	panel.add_child(right)
+	var mode_row := HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 10)
+	var mode_lbl := UITheme.label("MODE", 20, UITheme.ACCENT)
+	mode_lbl.custom_minimum_size = Vector2(90, 0)
+	mode_row.add_child(mode_lbl)
+	_mode_button = OptionButton.new()
+	_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mode_button.add_item("Chacun pour soi")
+	_mode_button.add_item("Équipes (rouge vs bleue)")
+	_mode_button.select(1 if Game.mode == Game.MODE_TDM else 0)
+	_mode_button.item_selected.connect(func(_i): _apply())
+	mode_row.add_child(_mode_button)
+	right.add_child(mode_row)
+	right.add_child(_sep())
 	right.add_child(UITheme.label("JOUEURS", 20, UITheme.ACCENT))
 	for i in Game.MAX_SLOTS:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		var swatch := ColorRect.new()
 		swatch.color = Game.PLAYER_COLORS[i]
+		_swatches.append(swatch)
 		swatch.custom_minimum_size = Vector2(8, 30)
 		row.add_child(swatch)
 		var lbl := UITheme.label("Slot %d" % (i + 1), 16)
@@ -130,8 +149,15 @@ func _build_ui() -> void:
 		ob.select(_choice_index(Game.slots[i]))
 		ob.item_selected.connect(func(_idx): _apply())
 		row.add_child(ob)
+		var tb := Button.new()
+		tb.custom_minimum_size = Vector2(86, 0)
+		tb.add_theme_font_size_override("font_size", 15)
+		tb.pressed.connect(func(): _toggle_team(i))
+		row.add_child(tb)
 		right.add_child(row)
 		_slot_buttons.append(ob)
+		_team_buttons.append(tb)
+		_slot_teams.append(int(Game.slots[i].get("team", i % 2)))
 
 	right.add_child(_sep())
 	right.add_child(UITheme.label("ARÈNE", 20, UITheme.ACCENT))
@@ -195,6 +221,10 @@ func _build_ui() -> void:
 	cv.add_child(close)
 	_apply()
 
+func _toggle_team(i: int) -> void:
+	_slot_teams[i] = 1 - _slot_teams[i]
+	_apply()
+
 func _close_controls() -> void:
 	_controls.visible = false
 	_start.grab_focus()
@@ -219,7 +249,18 @@ func _choice_index(slot: Dictionary) -> int:
 func _apply() -> void:
 	for i in _slot_buttons.size():
 		var c: Dictionary = SLOT_CHOICES[_slot_buttons[i].selected]
-		Game.slots[i] = {"type": c["type"], "device": int(c.get("device", 0)), "level": int(c.get("level", 1))}
+		Game.slots[i] = {"type": c["type"], "device": int(c.get("device", 0)), "level": int(c.get("level", 1)), "team": _slot_teams[i]}
+	Game.mode = Game.MODE_TDM if _mode_button.selected == 1 else Game.MODE_FFA
+	for i in _team_buttons.size():
+		var tb := _team_buttons[i]
+		var t := _slot_teams[i]
+		tb.visible = Game.mode == Game.MODE_TDM
+		_swatches[i].color = Game.TEAM_COLORS[t] if tb.visible else Game.PLAYER_COLORS[i]
+		tb.disabled = Game.slots[i]["type"] == "off"
+		tb.text = "Rouge" if t == 0 else "Bleue"
+		tb.add_theme_color_override("font_color", Game.TEAM_COLORS[t])
+		tb.add_theme_color_override("font_hover_color", Game.TEAM_COLORS[t].lightened(0.3))
+		tb.add_theme_color_override("font_focus_color", Game.TEAM_COLORS[t].lightened(0.3))
 	Game.map_index = _map_button.selected
 	Game.frag_limit = FRAG_CHOICES[_frag_button.selected]
 	Game.time_limit = TIME_CHOICES[_time_button.selected]
@@ -240,6 +281,13 @@ func _validate() -> String:
 		seen[key] = true
 	if count < 2:
 		return "Il faut au moins deux combattants."
+	if Game.mode == Game.MODE_TDM:
+		var sides := {}
+		for s in Game.slots:
+			if s["type"] != "off":
+				sides[int(s["team"])] = true
+		if sides.size() < 2:
+			return "Chaque équipe doit avoir au moins un joueur."
 	return ""
 
 func _on_start() -> void:

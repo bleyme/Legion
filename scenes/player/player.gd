@@ -35,6 +35,8 @@ const CROUCH_HEIGHT := 40.0
 
 # identity
 var player_id := 0
+var team := -1                 # -1 = free for all
+var pad_device := -1           # for rumble
 var display_name := "J1"
 var color := Color.WHITE
 var is_human := false
@@ -310,10 +312,11 @@ func _weapons(delta: float) -> void:
 				_swap_to(1)
 
 func _fire(w: Dictionary, def: Dictionary) -> void:
-	fire_cd = def["fire_rate"]
+	# Carry the sub-frame remainder so fire rates don't snap to whole frames.
+	fire_cd = float(def["fire_rate"]) + maxf(fire_cd, -get_physics_process_delta_time())
 	w["mag"] = int(w["mag"]) - 1
 	shield = 0.0
-	shots += 1
+	shots += int(def["pellets"])
 	var dir := input.aim.normalized()
 	if dir == Vector2.ZERO:
 		dir = Vector2(facing, 0)
@@ -344,6 +347,7 @@ func _fire(w: Dictionary, def: Dictionary) -> void:
 	SoundManager.play(def["sound"], origin, -2.0 if is_human else -5.0)
 	if is_human:
 		Game.shake(float(def["shake"]), global_position)
+		rumble(clampf(float(def["shake"]) * 2.0, 0.1, 0.8), 0.08)
 	if int(w["mag"]) <= 0 and int(w["reserve"]) != 0:
 		_start_reload()
 
@@ -461,6 +465,10 @@ func give_grenades(n: int) -> bool:
 # Damage & death
 # --------------------------------------------------------------------------
 
+func rumble(strength: float, duration: float) -> void:
+	if pad_device >= 0:
+		Input.start_joy_vibration(pad_device, strength * 0.6, strength, duration)
+
 func is_head_hit(p: Vector2) -> bool:
 	var head_line := global_position.y - (STAND_HEIGHT * 0.5 - 18.0) + (18.0 if crouching else 0.0)
 	return p.y < head_line
@@ -468,10 +476,14 @@ func is_head_hit(p: Vector2) -> bool:
 func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String, headshot: bool, at: Vector2) -> void:
 	if dead:
 		return
+	if attacker is Player and attacker != self and not Game.is_enemy(attacker, self):
+		return   # no friendly fire
 	if shield > 0.0 and attacker != self:
 		Game.fx.impact(at, -push.normalized() if push != Vector2.ZERO else Vector2.UP, Color(0.5, 0.8, 1.0))
 		return
 	velocity += push
+	if push.y < -100.0:
+		ground_jump = false   # don't let a jump-cut eat a rocket jump
 	health -= amount
 	hurt_flash = 0.12
 	recent_damage = 2.0
@@ -485,6 +497,7 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 	SoundManager.play("hit", at, -6.0)
 	if is_human:
 		Game.shake(clampf(amount / 120.0, 0.08, 0.4), global_position)
+		rumble(clampf(amount / 100.0, 0.2, 1.0), 0.18)
 		if Game.hud:
 			Game.hud.damage_flash(self)
 	var shooter := attacker as Player

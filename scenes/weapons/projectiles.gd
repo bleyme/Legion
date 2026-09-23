@@ -40,9 +40,7 @@ func fire(shooter: Node, origin: Vector2, dir: Vector2, def: Dictionary, inherit
 func _hitscan(shooter: Node, origin: Vector2, dir: Vector2, def: Dictionary) -> void:
 	var space := get_world_2d().direct_space_state
 	var end: Vector2 = origin + dir * float(def["range"])
-	var exclude: Array[RID] = []
-	if is_instance_valid(shooter):
-		exclude.append(shooter.get_rid())
+	var exclude := _excluded(shooter)
 	var from := origin
 	var hits := 0
 	for i in 5:
@@ -88,9 +86,18 @@ func _physics_process(delta: float) -> void:
 	_glow.queue_redraw()
 
 func _exclude_for(p: Dictionary) -> Array[RID]:
+	return _excluded(p["shooter"])
+
+## The shooter and their teammates: projectiles fly through allies.
+func _excluded(shooter: Node) -> Array[RID]:
 	var ex: Array[RID] = []
-	if is_instance_valid(p["shooter"]):
-		ex.append(p["shooter"].get_rid())
+	if not is_instance_valid(shooter):
+		return ex
+	ex.append(shooter.get_rid())
+	if shooter.team >= 0:
+		for pl in Game.active_players():
+			if pl != shooter and pl.team == shooter.team:
+				ex.append(pl.get_rid())
 	return ex
 
 func _step_bullet(p: Dictionary, dt: float, space: PhysicsDirectSpaceState2D) -> bool:
