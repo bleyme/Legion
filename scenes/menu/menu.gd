@@ -44,6 +44,7 @@ func _ready() -> void:
 	add_child(MainScene.instantiate())
 	_build_ui()
 	_start.grab_focus()
+	Input.joy_connection_changed.connect(func(_d, _c): _apply())
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -311,6 +312,15 @@ func _apply() -> void:
 	_map_desc.text = MapData.all()[Game.map_index]["desc"]
 	_error.text = _validate()
 	_start.disabled = _error.text != ""
+	_error.remove_theme_color_override("font_color")
+	_error.add_theme_color_override("font_color", Color(1.0, 0.45, 0.35))
+	if _error.text == "":
+		var pads := Input.get_connected_joypads()
+		for s in Game.slots:
+			if s["type"] == "pad" and not pads.has(int(s["device"])):
+				_error.text = "Attention : manette %d non détectée." % (int(s["device"]) + 1)
+				_error.add_theme_color_override("font_color", UITheme.ACCENT)
+				break
 
 func _validate() -> String:
 	var count := 0

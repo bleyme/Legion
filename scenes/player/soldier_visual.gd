@@ -45,6 +45,12 @@ func _draw() -> void:
 	var run_phase := sin(walk_time)
 	bob = absf(run_phase) * -1.5 if not airborne and not crouch else 0.0
 
+	# ---- contact shadow ----------------------------------------------------
+	if not airborne:
+		draw_set_transform(Vector2(0, 29), 0.0, Vector2(1.0, 0.22))
+		draw_circle(Vector2.ZERO, 14.0, Color(0, 0, 0, 0.35))
+		draw_set_transform(Vector2.ZERO, 0.0)
+
 	# ---- legs --------------------------------------------------------------
 	var hip := Vector2(0, 8 + drop + bob)
 	if crouch:

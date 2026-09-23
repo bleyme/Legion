@@ -15,6 +15,11 @@ var _last_played := {}   # name -> msec, throttles identical sounds in one burst
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Firefights stack dozens of sounds: keep the master bus from clipping.
+	var limiter := AudioEffectHardLimiter.new()
+	limiter.ceiling_db = -0.5
+	limiter.pre_gain_db = -2.0
+	AudioServer.add_bus_effect(0, limiter)
 	for i in VOICES_2D:
 		var p := AudioStreamPlayer2D.new()
 		p.max_distance = 3400.0
