@@ -1,0 +1,250 @@
+extends Node
+## Title screen. A bot-only match runs behind the UI as an attract mode.
+## Players pick who controls each slot (keyboard+mouse, second keyboard,
+## gamepads, or bots of four skill levels), the arena and the match rules.
+
+const MainScene := preload("res://scenes/main/main.tscn")
+
+const SLOT_CHOICES := [
+	{"label": "—", "type": "off"},
+	{"label": "Clavier + souris", "type": "kbm"},
+	{"label": "Clavier (flèches)", "type": "kb2"},
+	{"label": "Manette 1", "type": "pad", "device": 0},
+	{"label": "Manette 2", "type": "pad", "device": 1},
+	{"label": "Manette 3", "type": "pad", "device": 2},
+	{"label": "Manette 4", "type": "pad", "device": 3},
+	{"label": "Bot · Recrue", "type": "bot", "level": 0},
+	{"label": "Bot · Soldat", "type": "bot", "level": 1},
+	{"label": "Bot · Vétéran", "type": "bot", "level": 2},
+	{"label": "Bot · Légion", "type": "bot", "level": 3},
+]
+const FRAG_CHOICES := [5, 10, 15, 20, 30, 0]
+const TIME_CHOICES := [120.0, 180.0, 300.0, 600.0, 0.0]
+
+var _slot_buttons: Array[OptionButton] = []
+var _map_button: OptionButton
+var _map_desc: Label
+var _frag_button: OptionButton
+var _time_button: OptionButton
+var _error: Label
+var _controls: PanelContainer
+var _start: Button
+
+func _ready() -> void:
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Game.load_settings()
+	Game.demo = true
+	add_child(MainScene.instantiate())
+	_build_ui()
+	_start.grab_focus()
+
+func _build_ui() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.theme = UITheme.make()
+	layer.add_child(root)
+
+	var shade := ColorRect.new()
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.0, 0.01, 0.03, 0.45)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(shade)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 40)
+	root.add_child(margin)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 40)
+	margin.add_child(hbox)
+
+	# ---- left: title + main buttons ---------------------------------------
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 14)
+	hbox.add_child(left)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(spacer)
+	var title := UITheme.label("LÉGION", 110, UITheme.ACCENT)
+	title.add_theme_constant_override("outline_size", 14)
+	title.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.0))
+	left.add_child(title)
+	left.add_child(UITheme.label("Arène de combat 2D · jetpacks, roquettes et mauvaise foi", 18, UITheme.DIM))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 24)
+	left.add_child(gap)
+
+	_start = UITheme.button("COMBAT !", 28)
+	_start.custom_minimum_size = Vector2(300, 62)
+	_start.pressed.connect(_on_start)
+	left.add_child(_start)
+	var controls := UITheme.button("Commandes")
+	controls.custom_minimum_size = Vector2(300, 44)
+	controls.pressed.connect(func(): _controls.visible = not _controls.visible)
+	left.add_child(controls)
+	var quit := UITheme.button("Quitter")
+	quit.custom_minimum_size = Vector2(300, 44)
+	quit.pressed.connect(func(): get_tree().quit())
+	left.add_child(quit)
+	for b in [_start, controls, quit]:
+		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_error = UITheme.label("", 16, Color(1.0, 0.45, 0.35))
+	left.add_child(_error)
+	var spacer2 := Control.new()
+	spacer2.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(spacer2)
+	left.add_child(UITheme.label("F11 plein écran · Échap pause", 13, UITheme.DIM))
+
+	# ---- right: match setup ---------------------------------------------------
+	var panel := PanelContainer.new()
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.custom_minimum_size = Vector2(430, 0)
+	hbox.add_child(panel)
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 8)
+	panel.add_child(right)
+	right.add_child(UITheme.label("JOUEURS", 20, UITheme.ACCENT))
+	for i in Game.MAX_SLOTS:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var swatch := ColorRect.new()
+		swatch.color = Game.PLAYER_COLORS[i]
+		swatch.custom_minimum_size = Vector2(8, 30)
+		row.add_child(swatch)
+		var lbl := UITheme.label("Slot %d" % (i + 1), 16)
+		lbl.custom_minimum_size = Vector2(64, 0)
+		row.add_child(lbl)
+		var ob := OptionButton.new()
+		ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ob.add_theme_font_size_override("font_size", 16)
+		for c in SLOT_CHOICES:
+			ob.add_item(c["label"])
+		ob.select(_choice_index(Game.slots[i]))
+		ob.item_selected.connect(func(_idx): _apply())
+		row.add_child(ob)
+		right.add_child(row)
+		_slot_buttons.append(ob)
+
+	right.add_child(_sep())
+	right.add_child(UITheme.label("ARÈNE", 20, UITheme.ACCENT))
+	_map_button = OptionButton.new()
+	for m in MapData.all():
+		_map_button.add_item(m["name"])
+	_map_button.select(clampi(Game.map_index, 0, MapData.all().size() - 1))
+	_map_button.item_selected.connect(func(_i): _apply())
+	right.add_child(_map_button)
+	_map_desc = UITheme.label("", 14, UITheme.DIM)
+	_map_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
+	right.add_child(_map_desc)
+
+	right.add_child(_sep())
+	var rules := HBoxContainer.new()
+	rules.add_theme_constant_override("separation", 10)
+	right.add_child(rules)
+	var fcol := VBoxContainer.new()
+	fcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fcol.add_child(UITheme.label("FRAGS", 16, UITheme.ACCENT))
+	_frag_button = OptionButton.new()
+	for f in FRAG_CHOICES:
+		_frag_button.add_item("Illimité" if f == 0 else "%d frags" % f)
+	_frag_button.select(maxi(0, FRAG_CHOICES.find(Game.frag_limit)))
+	_frag_button.item_selected.connect(func(_i): _apply())
+	fcol.add_child(_frag_button)
+	rules.add_child(fcol)
+	var tcol := VBoxContainer.new()
+	tcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tcol.add_child(UITheme.label("DURÉE", 16, UITheme.ACCENT))
+	_time_button = OptionButton.new()
+	for t in TIME_CHOICES:
+		_time_button.add_item("Illimitée" if t == 0.0 else "%d min" % int(t / 60.0))
+	_time_button.select(maxi(0, TIME_CHOICES.find(Game.time_limit)))
+	_time_button.item_selected.connect(func(_i): _apply())
+	tcol.add_child(_time_button)
+	rules.add_child(tcol)
+
+	# ---- controls overlay ---------------------------------------------------------
+	_controls = PanelContainer.new()
+	_controls.visible = false
+	_controls.set_anchors_preset(Control.PRESET_CENTER)
+	_controls.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_controls.grow_vertical = Control.GROW_DIRECTION_BOTH
+	root.add_child(_controls)
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 10)
+	_controls.add_child(cv)
+	cv.add_child(UITheme.label("COMMANDES", 26, UITheme.ACCENT))
+	var help := [
+		["Clavier + souris", "ZQSD / WASD : se déplacer   ·   Espace ou Z/W : sauter, maintenir en l'air = jetpack\nS : s'accroupir (plus précis)   ·   S + saut : traverser une passerelle\nSouris : viser   ·   Clic gauche : tirer   ·   Clic droit ou G : grenade\nR : recharger   ·   A/Q ou E : changer d'arme, ramasser l'arme au sol"],
+		["Clavier (flèches)", "Flèches : se déplacer / sauter / jetpack   ·   Visée automatique\nEntrée, Ctrl droit ou Pavé 0 : tirer   ·   Maj droit ou Pavé 1 : grenade\nRetour arrière ou Pavé 3 : recharger   ·   Pavé 2 ou « . » : changer d'arme"],
+		["Manette", "Stick gauche : bouger   ·   Stick droit : viser (aide à la visée)\nRT/R1 : tirer   ·   LT/L1 : grenade   ·   A : saut/jetpack\nX : recharger   ·   Y : changer d'arme / ramasser   ·   Start : pause"],
+		["Astuces", "Les roquettes et grenades vous projettent : rocket-jump !\nTir à la tête = dégâts bonus. Les armes des morts restent au sol.\nLe bouclier de réapparition disparaît dès que vous tirez."],
+	]
+	for h in help:
+		cv.add_child(UITheme.label(h[0], 18, UITheme.TEXT))
+		cv.add_child(UITheme.label(h[1], 14, UITheme.DIM))
+	var close := UITheme.button("Fermer")
+	close.pressed.connect(_close_controls)
+	cv.add_child(close)
+	_apply()
+
+func _close_controls() -> void:
+	_controls.visible = false
+	_start.grab_focus()
+
+func _sep() -> HSeparator:
+	var s := HSeparator.new()
+	s.add_theme_constant_override("separation", 10)
+	return s
+
+func _choice_index(slot: Dictionary) -> int:
+	for i in SLOT_CHOICES.size():
+		var c: Dictionary = SLOT_CHOICES[i]
+		if c["type"] != slot["type"]:
+			continue
+		if c["type"] == "pad" and int(c["device"]) != int(slot.get("device", 0)):
+			continue
+		if c["type"] == "bot" and int(c["level"]) != int(slot.get("level", 1)):
+			continue
+		return i
+	return 0
+
+func _apply() -> void:
+	for i in _slot_buttons.size():
+		var c: Dictionary = SLOT_CHOICES[_slot_buttons[i].selected]
+		Game.slots[i] = {"type": c["type"], "device": int(c.get("device", 0)), "level": int(c.get("level", 1))}
+	Game.map_index = _map_button.selected
+	Game.frag_limit = FRAG_CHOICES[_frag_button.selected]
+	Game.time_limit = TIME_CHOICES[_time_button.selected]
+	_map_desc.text = MapData.all()[Game.map_index]["desc"]
+	_error.text = _validate()
+	_start.disabled = _error.text != ""
+
+func _validate() -> String:
+	var count := 0
+	var seen := {}
+	for s in Game.slots:
+		if s["type"] == "off":
+			continue
+		count += 1
+		var key: String = s["type"] + (str(s["device"]) if s["type"] == "pad" else "")
+		if s["type"] != "bot" and seen.has(key):
+			return "Chaque contrôleur ne peut servir qu'à un joueur."
+		seen[key] = true
+	if count < 2:
+		return "Il faut au moins deux combattants."
+	return ""
+
+func _on_start() -> void:
+	if _validate() != "":
+		return
+	Game.save_settings()
+	Game.demo = false
+	get_tree().change_scene_to_file("res://scenes/main/main.tscn")
