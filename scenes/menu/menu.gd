@@ -196,6 +196,27 @@ func _build_ui() -> void:
 	tcol.add_child(_time_button)
 	rules.add_child(tcol)
 
+	right.add_child(_sep())
+	var opts := HBoxContainer.new()
+	opts.add_theme_constant_override("separation", 10)
+	right.add_child(opts)
+	opts.add_child(UITheme.label("VOLUME", 16, UITheme.ACCENT))
+	var vol := HSlider.new()
+	vol.min_value = 0.0
+	vol.max_value = 1.0
+	vol.step = 0.05
+	vol.value = Game.volume
+	vol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	vol.value_changed.connect(_on_volume)
+	opts.add_child(vol)
+	var shake := CheckButton.new()
+	shake.text = "Secousses"
+	shake.button_pressed = Game.screen_shake
+	shake.add_theme_font_size_override("font_size", 15)
+	shake.toggled.connect(func(on): Game.screen_shake = on; Game.save_settings())
+	opts.add_child(shake)
+
 	# ---- controls overlay ---------------------------------------------------------
 	_controls = PanelContainer.new()
 	_controls.visible = false
@@ -207,9 +228,13 @@ func _build_ui() -> void:
 	cv.add_theme_constant_override("separation", 10)
 	_controls.add_child(cv)
 	cv.add_child(UITheme.label("COMMANDES", 26, UITheme.ACCENT))
+	var k := func(c: Key) -> String: return Game.key_label(c)
 	var help := [
-		["Clavier + souris", "ZQSD / WASD : se déplacer   ·   Espace ou Z/W : sauter, maintenir en l'air = jetpack\nS : s'accroupir (plus précis)   ·   S + saut : traverser une passerelle\nSouris : viser   ·   Clic gauche : tirer   ·   Clic droit ou G : grenade\nR : recharger   ·   A/Q ou E : changer d'arme, ramasser l'arme au sol"],
-		["Clavier (flèches)", "Flèches : se déplacer / sauter / jetpack   ·   Visée automatique\nEntrée, Ctrl droit ou Pavé 0 : tirer   ·   Maj droit ou Pavé 1 : grenade\nRetour arrière ou Pavé 3 : recharger   ·   Pavé 2 ou « . » : changer d'arme"],
+		["Clavier + souris", "%s%s%s%s : se déplacer   ·   Espace ou %s : sauter, maintenir en l'air = jetpack\n" % [k.call(KEY_W), k.call(KEY_A), k.call(KEY_S), k.call(KEY_D), k.call(KEY_W)]
+			+ "%s : s'accroupir (plus précis)   ·   %s + saut : traverser une passerelle\n" % [k.call(KEY_S), k.call(KEY_S)]
+			+ "Souris : viser   ·   Clic gauche : tirer   ·   Clic droit ou %s : grenade\n" % k.call(KEY_G)
+			+ "%s : recharger   ·   %s ou %s : changer d'arme, ramasser l'arme au sol" % [k.call(KEY_R), k.call(KEY_Q), k.call(KEY_E)]],
+		["Clavier (flèches)", "Flèches : se déplacer / sauter / jetpack   ·   Visée assistée automatique\nEntrée, Ctrl droit ou Pavé 0 : tirer   ·   Maj droit ou Pavé 1 : grenade\nRetour arrière ou Pavé 3 : recharger   ·   Pavé 2 ou « . » : changer d'arme"],
 		["Manette", "Stick gauche : bouger   ·   Stick droit : viser (aide à la visée)\nRT/R1 : tirer   ·   LT/L1 : grenade   ·   A : saut/jetpack\nX : recharger   ·   Y : changer d'arme / ramasser   ·   Start : pause"],
 		["Astuces", "Les roquettes et grenades vous projettent : rocket-jump !\nTir à la tête = dégâts bonus. Les armes des morts restent au sol.\nLe bouclier de réapparition disparaît dès que vous tirez."],
 	]
@@ -220,6 +245,12 @@ func _build_ui() -> void:
 	close.pressed.connect(_close_controls)
 	cv.add_child(close)
 	_apply()
+
+func _on_volume(v: float) -> void:
+	Game.volume = v
+	Game.apply_volume()
+	SoundManager.play("ui_move", Vector2.INF, -8.0)
+	Game.save_settings()
 
 func _toggle_team(i: int) -> void:
 	_slot_teams[i] = 1 - _slot_teams[i]

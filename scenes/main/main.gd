@@ -152,7 +152,7 @@ func _spawn_players() -> void:
 			Game.SLOT_KBM:
 				ctrl = KbmController.new()
 				mouse = true
-				hint = "Q/E"
+				hint = "%s/%s" % [Game.key_label(KEY_Q), Game.key_label(KEY_E)]
 			Game.SLOT_KB2:
 				ctrl = KbController.new()
 				hint = "Pavé2"
@@ -400,8 +400,10 @@ func _build_pause() -> void:
 	vbox.add_child(help)
 
 func _controls_text() -> String:
-	return "J1 : ZQSD/WASD bouger · Espace/Z saut + jetpack (maintenir) · S accroupi (S+saut : traverser)\n" \
-		+ "     Souris viser/tirer · Clic droit/G grenade · R recharger · A/E changer d'arme / ramasser\n" \
+	var k := func(c: Key) -> String: return Game.key_label(c)
+	var move: String = k.call(KEY_W) + k.call(KEY_A) + k.call(KEY_S) + k.call(KEY_D)
+	return "J1 : %s bouger · Espace/%s saut + jetpack (maintenir) · %s accroupi (%s+saut : traverser)\n" % [move, k.call(KEY_W), k.call(KEY_S), k.call(KEY_S)] \
+		+ "     Souris viser/tirer · Clic droit/%s grenade · %s recharger · %s/%s changer d'arme / ramasser\n" % [k.call(KEY_G), k.call(KEY_R), k.call(KEY_Q), k.call(KEY_E)] \
 		+ "J2 : Flèches · Entrée/Ctrl droit tirer · Maj droit grenade · Retour arrière recharger · Pavé 2 changer\n" \
 		+ "Manette : stick gauche bouger · stick droit viser · RT tirer · LT grenade · A saut · X recharger · Y changer"
 

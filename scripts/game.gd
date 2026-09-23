@@ -37,6 +37,8 @@ const TEAM_COLORS := [Color(1.0, 0.38, 0.3), Color(0.32, 0.62, 1.0)]
 const TEAM_NAMES := ["ROUGE", "BLEUE"]
 
 var mode := MODE_FFA
+var volume := 0.8          # master volume, 0..1
+var screen_shake := true
 var map_index  := 0
 var frag_limit := 15
 var time_limit := 300.0   # seconds, 0 = unlimited
@@ -56,6 +58,7 @@ var soft_tex: GradientTexture2D
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_register_inputs()
+	load_settings()
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 1, 1, 1))
 	g.set_color(1, Color(1, 1, 1, 0))
@@ -79,6 +82,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
+func apply_volume() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.0001)))
+	AudioServer.set_bus_mute(0, volume <= 0.001)
+
+## Name of the key at a physical position on the user's own layout
+## (e.g. physical Q shows as "A" on AZERTY).
+func key_label(physical: Key) -> String:
+	if DisplayServer.get_name() == "headless":
+		return OS.get_keycode_string(physical)
+	return OS.get_keycode_string(DisplayServer.keyboard_get_label_from_physical(physical))
+
 func teams() -> bool:
 	return mode == MODE_TDM and not demo
 
@@ -94,7 +108,7 @@ func active_players() -> Array:
 	return []
 
 func shake(amount: float, at := Vector2.INF) -> void:
-	if camera:
+	if camera and screen_shake:
 		camera.add_trauma(amount, at)
 
 # --------------------------------------------------------------------------
@@ -161,6 +175,8 @@ func save_settings() -> void:
 	cfg.set_value("match", "frag_limit", frag_limit)
 	cfg.set_value("match", "time_limit", time_limit)
 	cfg.set_value("match", "mode", mode)
+	cfg.set_value("options", "volume", volume)
+	cfg.set_value("options", "screen_shake", screen_shake)
 	cfg.save(SETTINGS_PATH)
 
 func load_settings() -> void:
@@ -174,6 +190,9 @@ func load_settings() -> void:
 	frag_limit = int(cfg.get_value("match", "frag_limit", frag_limit))
 	time_limit = float(cfg.get_value("match", "time_limit", time_limit))
 	mode = str(cfg.get_value("match", "mode", mode))
+	volume = float(cfg.get_value("options", "volume", volume))
+	screen_shake = bool(cfg.get_value("options", "screen_shake", screen_shake))
+	apply_volume()
 	for i in slots.size():
 		if not slots[i].has("team"):
 			slots[i]["team"] = i % 2
