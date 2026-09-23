@@ -18,7 +18,10 @@ func _process(delta: float) -> void:
 		return
 	var vx := player.velocity.x
 	if player.is_on_floor() and absf(vx) > 10.0:
+		var before := int(walk_time / PI)
 		walk_time += delta * absf(vx) * 0.045
+		if int(walk_time / PI) != before and absf(vx) > 120.0:
+			SoundManager.play("step", player.global_position + Vector2(0, 28), -18.0 if player.is_human else -24.0)
 	else:
 		walk_time = lerpf(walk_time, roundf(walk_time / PI) * PI, delta * 8.0)
 	scale.x = player.facing

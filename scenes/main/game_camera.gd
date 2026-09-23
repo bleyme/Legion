@@ -13,9 +13,9 @@ var _zoom := 1.0
 var _noise := FastNoiseLite.new()
 var _t := 0.0
 var _snap := true
+var _just_snapped := false
 
 func _ready() -> void:
-	process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	_noise.frequency = 0.9
 	_noise.seed = randi()
 	ignore_rotation = false
@@ -63,6 +63,7 @@ func _physics_process(delta: float) -> void:
 		_center = target_center
 		_zoom = target_zoom
 		_snap = false
+		_just_snapped = true
 	else:
 		_center = _center.lerp(target_center, 1.0 - exp(-delta * 7.0))
 		_zoom = lerpf(_zoom, target_zoom, 1.0 - exp(-delta * 2.5))
@@ -77,6 +78,9 @@ func _physics_process(delta: float) -> void:
 	var s := trauma * trauma
 	var shake := Vector2(_noise.get_noise_2d(_t * 60.0, 0.0), _noise.get_noise_2d(0.0, _t * 60.0)) * 26.0 * s
 	global_position = c + shake / _zoom
+	if _just_snapped:
+		reset_physics_interpolation()
+		_just_snapped = false
 	rotation = _noise.get_noise_2d(_t * 40.0, 100.0) * 0.035 * s
 	zoom = Vector2(_zoom, _zoom)
 

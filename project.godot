@@ -14,6 +14,7 @@ config/name="Legion"
 config/description="Arène de combat 2D : jetpacks, armes à gogo, bots et multijoueur local"
 run/main_scene="res://scenes/menu/menu.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.svg"
 
 [autoload]
 
@@ -36,6 +37,7 @@ pointing/emulate_touch_from_mouse=false
 
 2d/default_gravity=1500.0
 common/physics_ticks_per_second=60
+common/physics_interpolation=true
 common/max_physics_steps_per_frame=4
 
 [rendering]

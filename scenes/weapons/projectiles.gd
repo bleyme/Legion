@@ -31,7 +31,7 @@ func fire(shooter: Node, origin: Vector2, dir: Vector2, def: Dictionary, inherit
 		_:
 			var speed: float = def["speed"]
 			var p := {
-				"kind": def["kind"], "pos": origin, "vel": dir * speed + inherit,
+				"kind": def["kind"], "pos": origin, "prev": origin, "vel": dir * speed + inherit,
 				"def": def, "shooter": shooter, "life": 0.0, "traveled": 0.0,
 				"fuse": def["fuse"], "bounces": 0,
 			}
@@ -73,6 +73,7 @@ func _physics_process(delta: float) -> void:
 	var i := 0
 	while i < _list.size():
 		var p: Dictionary = _list[i]
+		p["prev"] = p["pos"]
 		var alive := true
 		match p["kind"]:
 			"bullet":  alive = _step_bullet(p, delta, space)
@@ -82,8 +83,15 @@ func _physics_process(delta: float) -> void:
 			i += 1
 		else:
 			_list.remove_at(i)
+
+## Redraw every rendered frame, interpolating between physics ticks so
+## projectiles stay smooth on high refresh rate screens.
+func _process(_delta: float) -> void:
 	queue_redraw()
 	_glow.queue_redraw()
+
+func _draw_pos(p: Dictionary) -> Vector2:
+	return (p["prev"] as Vector2).lerp(p["pos"], Engine.get_physics_interpolation_fraction())
 
 func _exclude_for(p: Dictionary) -> Array[RID]:
 	return _excluded(p["shooter"])
@@ -232,7 +240,7 @@ func explode(pos: Vector2, def: Dictionary, shooter: Node) -> void:
 
 func _draw() -> void:
 	for p in _list:
-		var pos: Vector2 = p["pos"]
+		var pos := _draw_pos(p)
 		match p["kind"]:
 			"rocket":
 				var ang: float = p["vel"].angle()
@@ -250,7 +258,7 @@ func _draw() -> void:
 
 func _draw_glow() -> void:
 	for p in _list:
-		var pos: Vector2 = p["pos"]
+		var pos := _draw_pos(p)
 		match p["kind"]:
 			"bullet":
 				var def: Dictionary = p["def"]

@@ -69,6 +69,8 @@ var hit_marker_kill := false
 var last_hit_by: Node = null
 var jet_sound_cd := 0.0
 var respawn_left := 0.0
+var hurt_dir := Vector2.ZERO    # toward the last attacker, for the HUD indicator
+var hurt_dir_time := 0.0
 var killed_by := ""
 
 # weapons
@@ -124,6 +126,7 @@ func _physics_process(delta: float) -> void:
 	hurt_flash = maxf(0.0, hurt_flash - delta)
 	recent_damage = maxf(0.0, recent_damage - delta)
 	hit_marker = maxf(0.0, hit_marker - delta)
+	hurt_dir_time = maxf(0.0, hurt_dir_time - delta)
 	multi_timer = maxf(0.0, multi_timer - delta)
 	if dead:
 		return
@@ -491,6 +494,9 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 	recent_damage = 2.0
 	if attacker != self:
 		last_hit_by = attacker
+		if attacker is Node2D:
+			hurt_dir = (attacker.global_position - global_position).normalized()
+			hurt_dir_time = 1.2
 	var dir := push.normalized() if push != Vector2.ZERO else Vector2.UP
 	Game.fx.blood(at, dir, 6 if amount < 30 else 14)
 	if attacker is Player and attacker.is_human and attacker != self:
@@ -537,6 +543,7 @@ func die(killer: Node, weapon_id: String, headshot: bool, push := Vector2.ZERO) 
 
 func respawn(at: Vector2) -> void:
 	global_position = at
+	reset_physics_interpolation()   # teleport, don't smear across the map
 	velocity = Vector2.ZERO
 	health = MAX_HEALTH
 	fuel = FUEL_MAX

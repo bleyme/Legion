@@ -87,6 +87,7 @@ func _ready() -> void:
 	var cam := Camera2D.new()
 	cam.set_script(CameraScript)
 	cam.arena_size = arena.size
+	cam.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS   # required by physics interpolation
 	add_child(cam)
 	cam.make_current()
 	Game.camera = cam

@@ -80,7 +80,14 @@ func _ready() -> void:
 	soft_tex.width = 64
 	soft_tex.height = 64
 
+## Set by a mouse-wheel notch, consumed by the keyboard+mouse controller.
+var wheel_swap := false
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and \
+			(event.button_index == MOUSE_BUTTON_WHEEL_UP or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		wheel_swap = true
+		return
 	if event.is_action_pressed("pause") and world and world.has_method("toggle_pause"):
 		world.toggle_pause()
 		get_viewport().set_input_as_handled()

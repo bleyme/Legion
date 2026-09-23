@@ -96,7 +96,10 @@ func _draw() -> void:
 	for p in humans:
 		if p.dead:
 			_draw_death(p, vs, humans.size())
-		elif p.is_mouse_user:
+			continue
+		if p.hurt_dir_time > 0.0:
+			_draw_hurt_dir(p)
+		if p.is_mouse_user:
 			_draw_crosshair(p)
 
 func _text(pos: Vector2, text: String, fsize: int, color: Color, align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, outline := 4) -> void:
@@ -261,6 +264,14 @@ func _draw_crosshair(p: Player) -> void:
 		draw_arc(m, 18, -PI * 0.5, -PI * 0.5 + TAU * prog, 32, Color(1, 1, 1, 0.8), 3.0)
 	elif int(p.current()["mag"]) == 0:
 		_text(m + Vector2(-60, 34), "RECHARGER (R)", 12, Color(1.0, 0.4, 0.3), HORIZONTAL_ALIGNMENT_CENTER, 120, 3)
+
+## Red arc around the player pointing at whoever just shot them.
+func _draw_hurt_dir(p: Player) -> void:
+	var sp := get_viewport().get_canvas_transform() * p.global_position
+	var ang := p.hurt_dir.angle()
+	var a := clampf(p.hurt_dir_time / 1.2, 0.0, 1.0)
+	draw_arc(sp, 64.0, ang - 0.42, ang + 0.42, 16, Color(0, 0, 0, 0.5 * a), 8.0)
+	draw_arc(sp, 64.0, ang - 0.4, ang + 0.4, 16, Color(1.0, 0.2, 0.15, 0.9 * a), 5.0)
 
 func _draw_death(p: Player, vs: Vector2, human_count: int) -> void:
 	var t := "Réapparition dans %.1f" % maxf(p.respawn_left, 0.0)
