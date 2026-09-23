@@ -95,6 +95,8 @@ func has(id: String) -> bool:
 
 ## Weapons that can appear in pickup spots, weighted.
 func random_pickup_id(exclude := "") -> String:
+	if Game.arsenal_weapon() != "":
+		return Game.arsenal_weapon()
 	var total := 0
 	for id in _db:
 		if id != exclude:

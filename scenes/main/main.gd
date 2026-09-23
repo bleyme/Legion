@@ -106,7 +106,12 @@ func _ready() -> void:
 	_build_pause()
 	_build_end()
 	if not _demo:
-		_hud.announce("COMBAT !", UITheme.ACCENT, map["name"], 2.0)
+		var sub: String = map["name"]
+		if Game.arsenal_weapon() != "":
+			for a in Game.ARSENALS:
+				if a["id"] == Game.arsenal:
+					sub += " · " + a["name"]
+		_hud.announce("COMBAT !", UITheme.ACCENT, sub, 2.0)
 		SoundManager.play("announce", Vector2.INF, -6.0)
 		var has_mouse := players.any(func(p): return p.is_mouse_user)
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if has_mouse else Input.MOUSE_MODE_VISIBLE

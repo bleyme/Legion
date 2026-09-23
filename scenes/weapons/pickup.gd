@@ -26,7 +26,7 @@ func _ready() -> void:
 	_font = ThemeDB.fallback_font
 	_t = randf() * TAU
 	if kind == "weapon" and not dropped:
-		weapon_id = fixed if fixed != "" else WeaponData.random_pickup_id()
+		weapon_id = fixed if fixed != "" and Game.arsenal_weapon() == "" else WeaponData.random_pickup_id()
 
 func _physics_process(delta: float) -> void:
 	_t += delta
@@ -51,7 +51,7 @@ func _physics_process(delta: float) -> void:
 		respawn_left -= delta
 		if respawn_left <= 0.0:
 			active = true
-			if kind == "weapon" and fixed == "":
+			if kind == "weapon" and (fixed == "" or Game.arsenal_weapon() != ""):
 				weapon_id = WeaponData.random_pickup_id()
 			Game.fx.pickup_burst(global_position, _color())
 		queue_redraw()
@@ -138,6 +138,9 @@ func _draw() -> void:
 			draw_set_transform(Vector2(-12, bob), 0.0, Vector2(0.9, 0.9))
 			WeaponArt.draw_weapon(self, weapon_id)
 			draw_set_transform(Vector2(0, bob))
+			if dropped:
+				draw_set_transform(Vector2.ZERO)
+				return
 			var label: String = WeaponData.get_def(weapon_id)["name"]
 			var w := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 			draw_string_outline(_font, Vector2(-w * 0.5, -18), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color(0, 0, 0, 0.7))

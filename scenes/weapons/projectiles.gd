@@ -187,6 +187,8 @@ func _step_grenade(p: Dictionary, dt: float, space: PhysicsDirectSpaceState2D) -
 func _damage_player(target: Player, at: Vector2, dir: Vector2, def: Dictionary, shooter: Node, mult: float) -> void:
 	var head: bool = target.is_head_hit(at)
 	var dmg: float = float(def["damage"]) * mult
+	if Game.instagib():
+		dmg = 1000.0
 	if head:
 		dmg *= float(def["head_mult"])
 	target.take_damage(dmg, dir * float(def["knock"]), shooter, def["id"], head, at)

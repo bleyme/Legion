@@ -61,6 +61,9 @@ Les armes principales se ramassent sur la carte ; celles des joueurs tués reste
 | Lance-roquettes | explosion de zone, rocket-jump |
 | Lance-grenades | projectiles rebondissants, explosent au contact |
 
+**Arsenal** : en plus du mode complet, des parties à arme unique — Roquettes,
+Railgun instagib (un tir = un frag), Fusils à pompe ou Snipers.
+
 Tirs à la tête, dégâts dégressifs à distance, recul, projection par les
 explosions (le souffle est bloqué par les murs) et bouclier de réapparition
 qui disparaît dès qu'on tire.

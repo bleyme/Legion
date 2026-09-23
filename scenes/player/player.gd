@@ -552,6 +552,13 @@ func respawn(at: Vector2) -> void:
 	grenades = START_GRENADES
 	reload_left = 0.0
 	fire_cd = 0.3
+	var forced := Game.arsenal_weapon()
+	if forced != "":
+		var d := WeaponData.get_def(forced)
+		primary = {"id": forced, "mag": int(d["mag"]), "reserve": int(d["reserve"]) * 3}
+		slot = 0
+		if Game.instagib():
+			grenades = 0
 	shield = SPAWN_SHIELD
 	last_hit_by = null
 	streak = 0

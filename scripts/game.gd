@@ -37,6 +37,15 @@ const TEAM_COLORS := [Color(1.0, 0.38, 0.3), Color(0.32, 0.62, 1.0)]
 const TEAM_NAMES := ["ROUGE", "BLEUE"]
 
 var mode := MODE_FFA
+## Weapon mutator: "all" or a single weapon id everyone spawns with.
+const ARSENALS := [
+	{"id": "all", "name": "Complet"},
+	{"id": "rocket", "name": "Roquettes"},
+	{"id": "railgun", "name": "Railgun instagib"},
+	{"id": "shotgun", "name": "Fusils à pompe"},
+	{"id": "sniper", "name": "Snipers"},
+]
+var arsenal := "all"
 var volume := 0.8          # master volume, 0..1
 var screen_shake := true
 var map_index  := 0
@@ -92,6 +101,13 @@ func key_label(physical: Key) -> String:
 	if DisplayServer.get_name() == "headless":
 		return OS.get_keycode_string(physical)
 	return OS.get_keycode_string(DisplayServer.keyboard_get_label_from_physical(physical))
+
+## Single-weapon mutator active? (never in the menu demo)
+func arsenal_weapon() -> String:
+	return "" if arsenal == "all" or demo else arsenal
+
+func instagib() -> bool:
+	return arsenal_weapon() == "railgun"
 
 func teams() -> bool:
 	return mode == MODE_TDM and not demo
@@ -175,6 +191,7 @@ func save_settings() -> void:
 	cfg.set_value("match", "frag_limit", frag_limit)
 	cfg.set_value("match", "time_limit", time_limit)
 	cfg.set_value("match", "mode", mode)
+	cfg.set_value("match", "arsenal", arsenal)
 	cfg.set_value("options", "volume", volume)
 	cfg.set_value("options", "screen_shake", screen_shake)
 	cfg.save(SETTINGS_PATH)
@@ -190,6 +207,7 @@ func load_settings() -> void:
 	frag_limit = int(cfg.get_value("match", "frag_limit", frag_limit))
 	time_limit = float(cfg.get_value("match", "time_limit", time_limit))
 	mode = str(cfg.get_value("match", "mode", mode))
+	arsenal = str(cfg.get_value("match", "arsenal", arsenal))
 	volume = float(cfg.get_value("options", "volume", volume))
 	screen_shake = bool(cfg.get_value("options", "screen_shake", screen_shake))
 	apply_volume()

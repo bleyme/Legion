@@ -27,6 +27,7 @@ var _slot_teams: Array[int] = []
 var _mode_button: OptionButton
 var _swatches: Array[ColorRect] = []
 var _map_button: OptionButton
+var _arsenal_button: OptionButton
 var _map_desc: Label
 var _frag_button: OptionButton
 var _time_button: OptionButton
@@ -160,13 +161,24 @@ func _build_ui() -> void:
 		_slot_teams.append(int(Game.slots[i].get("team", i % 2)))
 
 	right.add_child(_sep())
-	right.add_child(UITheme.label("ARÈNE", 20, UITheme.ACCENT))
+	right.add_child(UITheme.label("ARÈNE & ARSENAL", 20, UITheme.ACCENT))
 	_map_button = OptionButton.new()
 	for m in MapData.all():
 		_map_button.add_item(m["name"])
 	_map_button.select(clampi(Game.map_index, 0, MapData.all().size() - 1))
 	_map_button.item_selected.connect(func(_i): _apply())
-	right.add_child(_map_button)
+	_map_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var map_row := HBoxContainer.new()
+	map_row.add_theme_constant_override("separation", 10)
+	map_row.add_child(_map_button)
+	_arsenal_button = OptionButton.new()
+	_arsenal_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for a in Game.ARSENALS:
+		_arsenal_button.add_item("Armes : " + a["name"])
+	_arsenal_button.select(maxi(0, Game.ARSENALS.map(func(a): return a["id"]).find(Game.arsenal)))
+	_arsenal_button.item_selected.connect(func(_i): _apply())
+	map_row.add_child(_arsenal_button)
+	right.add_child(map_row)
 	_map_desc = UITheme.label("", 14, UITheme.DIM)
 	_map_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	right.add_child(_map_desc)
@@ -293,6 +305,7 @@ func _apply() -> void:
 		tb.add_theme_color_override("font_hover_color", Game.TEAM_COLORS[t].lightened(0.3))
 		tb.add_theme_color_override("font_focus_color", Game.TEAM_COLORS[t].lightened(0.3))
 	Game.map_index = _map_button.selected
+	Game.arsenal = Game.ARSENALS[_arsenal_button.selected]["id"]
 	Game.frag_limit = FRAG_CHOICES[_frag_button.selected]
 	Game.time_limit = TIME_CHOICES[_time_button.selected]
 	_map_desc.text = MapData.all()[Game.map_index]["desc"]
