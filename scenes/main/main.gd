@@ -4,6 +4,7 @@ extends Node2D
 ## pause and end-of-match screens. Also runs the bot-only demo behind the menu.
 
 const RESPAWN_DELAY := 2.4
+const COUNTDOWN := 2.4
 const PlayerScene := preload("res://scenes/player/player.tscn")
 const ArenaScript := preload("res://scenes/map/arena.gd")
 const BackgroundScript := preload("res://scenes/fx/background_visual.gd")
@@ -35,6 +36,10 @@ var _end_layer: CanvasLayer
 var _recent_spawns := {}
 var _hitstop := 0.0
 var _slowmo := 0.0
+## Seconds left in the 3-2-1 intro; players are frozen while > 0.
+var countdown := 0.0
+var _intro_sub := ""
+var _last_count := -1
 
 func _ready() -> void:
 	_demo = Game.demo
@@ -112,8 +117,9 @@ func _ready() -> void:
 			for a in Game.ARSENALS:
 				if a["id"] == Game.arsenal:
 					sub += " · " + a["name"]
-		_hud.announce("COMBAT !", UITheme.ACCENT, sub, 2.0)
-		SoundManager.play("announce", Vector2.INF, -6.0)
+		_intro_sub = sub
+		countdown = COUNTDOWN
+		_hud.show_hints(players)
 		var has_mouse := players.any(func(p): return p.is_mouse_user)
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if has_mouse else Input.MOUSE_MODE_VISIBLE
 
@@ -129,6 +135,9 @@ func _exit_tree() -> void:
 
 func get_players() -> Array:
 	return players
+
+func frozen() -> bool:
+	return countdown > 0.0
 
 # --------------------------------------------------------------------------
 # Setup
@@ -238,6 +247,17 @@ func _process(delta: float) -> void:
 				_show_end()
 
 	if match_over:
+		return
+	if countdown > 0.0:
+		countdown -= delta
+		var n := int(ceil(countdown / (COUNTDOWN / 3.0)))
+		if n != _last_count and n > 0:
+			_last_count = n
+			_hud.announce(str(n), Color.WHITE, _intro_sub, COUNTDOWN / 3.0 - 0.02)
+			SoundManager.play("ui_move", Vector2.INF, -2.0, 0.8)
+		if countdown <= 0.0:
+			_hud.announce("COMBAT !", UITheme.ACCENT, _intro_sub, 1.4)
+			SoundManager.play("announce", Vector2.INF, -6.0)
 		return
 	if time_left > 0.0:
 		var before := time_left

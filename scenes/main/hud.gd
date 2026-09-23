@@ -11,6 +11,8 @@ var _feed: Array = []        # {killer, kcol, weapon, victim, vcol, head, t}
 var _announce: Array = []    # {text, sub, color, t, dur}
 var _vignette := 0.0
 var _time := 0.0
+var _hints: Array = []     # [player, text]
+var _hints_left := 0.0
 
 func _ready() -> void:
 	_font = ThemeDB.fallback_font
@@ -20,6 +22,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_time += delta
 	_vignette = maxf(0.0, _vignette - delta * 1.6)
+	_hints_left = maxf(0.0, _hints_left - delta)
 	for f in _feed:
 		f["t"] += delta
 	_feed = _feed.filter(func(f): return f["t"] < FEED_TIME)
@@ -57,6 +60,24 @@ func announce(text: String, color := UITheme.ACCENT, sub := "", dur := 1.8) -> v
 	if _announce.size() > 3:
 		_announce.remove_at(1)
 
+## Short per-device control reminder at the start of a match.
+func show_hints(players: Array) -> void:
+	_hints.clear()
+	var k := func(c: Key) -> String: return Game.key_label(c)
+	for p in players:
+		if not p.is_human:
+			continue
+		var t := ""
+		if p.is_mouse_user:
+			t = "%s%s%s%s bouger · %s/Espace saut, maintenir = jetpack · Clic tirer · Clic droit grenade · %s/molette changer d'arme" % [
+				k.call(KEY_W), k.call(KEY_A), k.call(KEY_S), k.call(KEY_D), k.call(KEY_W), k.call(KEY_Q)]
+		elif p.pad_device >= 0:
+			t = "Stick gauche bouger · A saut/jetpack · Stick droit viser · RT tirer · LT grenade · Y changer d'arme"
+		else:
+			t = "Flèches bouger/sauter/jetpack · Entrée tirer · Maj droit grenade · Visée automatique"
+		_hints.append([p, t])
+	_hints_left = 9.0
+
 func damage_flash(p: Player) -> void:
 	_vignette = minf(1.0, _vignette + 0.45)
 
@@ -89,6 +110,10 @@ func _draw() -> void:
 			x = gap + idx * (CARD_SIZE.x + gap)
 		_draw_card(humans[idx], Vector2(x, vs.y - CARD_SIZE.y - 14.0))
 
+	if world.frozen():
+		_draw_locators(humans)
+	if _hints_left > 0.0:
+		_draw_hints(vs)
 	_draw_timer(world, vs)
 	_draw_scoreboard(players, vs)
 	_draw_feed(vs)
@@ -264,6 +289,29 @@ func _draw_crosshair(p: Player) -> void:
 		draw_arc(m, 18, -PI * 0.5, -PI * 0.5 + TAU * prog, 32, Color(1, 1, 1, 0.8), 3.0)
 	elif int(p.current()["mag"]) == 0:
 		_text(m + Vector2(-60, 34), "RECHARGER (R)", 12, Color(1.0, 0.4, 0.3), HORIZONTAL_ALIGNMENT_CENTER, 120, 3)
+
+func _draw_locators(humans: Array) -> void:
+	var xf := get_viewport().get_canvas_transform()
+	for p in humans:
+		var sp: Vector2 = xf * p.global_position
+		var pulse := 0.5 + 0.5 * sin(_time * 8.0)
+		draw_arc(sp, 40.0 + pulse * 8.0, 0.0, TAU, 40, Color(p.color.r, p.color.g, p.color.b, 0.9), 3.0)
+		var tip := sp + Vector2(0, -70 - pulse * 6.0)
+		if tip.y < 60.0:
+			tip.y = sp.y + 70.0 + pulse * 6.0 + 14.0   # flip below when near the top edge
+		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-10, -14), tip + Vector2(10, -14)]), p.color)
+		_text(tip + Vector2(-60, -20), p.display_name, 20, p.color.lightened(0.3), HORIZONTAL_ALIGNMENT_CENTER, 120, 4)
+
+func _draw_hints(vs: Vector2) -> void:
+	var a := clampf(_hints_left, 0.0, 1.0)
+	var y := vs.y - CARD_SIZE.y - 30.0 - (_hints.size() - 1) * 22.0
+	for h in _hints:
+		var p: Player = h[0]
+		var line: String = "%s : %s" % [p.display_name, h[1]]
+		var w := _font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		draw_rect(Rect2(vs.x * 0.5 - w * 0.5 - 10, y - 16, w + 20, 22), Color(0.03, 0.04, 0.07, 0.7 * a))
+		_text(Vector2(0, y), line, 14, Color(p.color.r, p.color.g, p.color.b, a).lightened(0.35), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 3)
+		y += 22.0
 
 ## Red arc around the player pointing at whoever just shot them.
 func _draw_hurt_dir(p: Player) -> void:

@@ -133,6 +133,11 @@ func _physics_process(delta: float) -> void:
 	input.clear_edges()
 	if controller:
 		controller.update(self, delta, input)
+	if Game.world and Game.world.frozen():
+		# Intro countdown: aim freely, but no moving or shooting yet.
+		var aim := input.aim
+		input = PlayerInput.new()
+		input.aim = aim
 	shield = maxf(0.0, shield - delta)
 
 	_update_crouch()
