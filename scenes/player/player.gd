@@ -185,6 +185,7 @@ func _move(delta: float) -> void:
 	if input.down and input.jump_pressed and on_floor and _on_platform():
 		drop_timer = 0.25
 		jump_buffer = 0.0
+		coyote = 0.0
 		position.y += 2
 	elif jump_buffer > 0.0 and coyote > 0.0:
 		velocity.y = JUMP_VELOCITY
@@ -470,7 +471,8 @@ func rumble(strength: float, duration: float) -> void:
 		Input.start_joy_vibration(pad_device, strength * 0.6, strength, duration)
 
 func is_head_hit(p: Vector2) -> bool:
-	var head_line := global_position.y - (STAND_HEIGHT * 0.5 - 18.0) + (18.0 if crouching else 0.0)
+	# Top ~16px of the body (helmet and face) counts as the head.
+	var head_line := global_position.y - 13.0 + (18.0 if crouching else 0.0)
 	return p.y < head_line
 
 func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String, headshot: bool, at: Vector2) -> void:

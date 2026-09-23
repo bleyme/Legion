@@ -46,7 +46,12 @@ var bursting := true
 var nade_cd := 2.0
 var hop_cd := 0.0
 var detour_dir := 0.0
+var drop_dir := 0.0
+var drop_rect := Rect2()
 var wander := Vector2.INF
+var pickup_timer := 0.0
+var _last_pick: Node = null
+var ignored := {}          # pickup -> msec until which it is ignored
 var _jump_was_held := false
 
 func _init(lvl := 1) -> void:
@@ -103,13 +108,14 @@ func _think(p: Player) -> void:
 
 	# Goal selection
 	goal_pickup = null
-	var weapon_id: String = p.current()["id"]
+	var weapon_id: String = p.primary.get("id", "")
 	var want_health := p.health < 50.0
 	var want_weapon := p.primary.is_empty() or _ammo_low(p)
 	var best_pick: Node = null
 	var best_pick_d := INF
+	var now := Time.get_ticks_msec()
 	for pk in Game.world.pickups:
-		if not pk.active:
+		if not pk.active or int(ignored.get(pk, 0)) > now:
 			continue
 		var d: float = p.global_position.distance_to(pk.global_position)
 		var useful := false
@@ -121,8 +127,11 @@ func _think(p: Player) -> void:
 				useful = p.grenades < 2 and d < 400.0
 			_:
 				var rank_new: int = RANK.get(pk.weapon_id, 1)
-				var rank_cur: int = RANK.get(weapon_id, 0) if not p.primary.is_empty() else 0
-				useful = want_weapon or rank_new > rank_cur or (pk.weapon_id == weapon_id and _ammo_low(p))
+				var rank_cur: int = RANK.get(weapon_id, 0) if not p.primary.is_empty() else -1
+				if pk.weapon_id == weapon_id:
+					useful = _ammo_low(p)
+				else:
+					useful = want_weapon or rank_new > rank_cur
 				if not useful and d < 200.0 and rank_new >= rank_cur and pk.weapon_id != weapon_id:
 					useful = level >= 2
 		if useful and d < best_pick_d and d < 1400.0:
@@ -132,6 +141,15 @@ func _think(p: Player) -> void:
 	if best_pick and (not fighting or best_pick_d < 220.0 or want_health):
 		goal_pickup = best_pick
 		goal = best_pick.global_position
+		# Give up on a pickup we can't seem to reach (or can't take).
+		if best_pick != _last_pick:
+			_last_pick = best_pick
+			pickup_timer = 0.0
+		pickup_timer += 0.15
+		var near := p.global_position.distance_to(goal) < 90.0
+		if (near and pickup_timer > 1.5) or pickup_timer > 7.0:
+			ignored[best_pick] = now + 10000
+			pickup_timer = 0.0
 	elif target and (target_visible or last_seen_age < 3.0):
 		goal = target.global_position if target_visible else last_seen_pos
 	elif target:
@@ -187,7 +205,7 @@ func _navigate(p: Player, dt: float, i: PlayerInput, arena: Node) -> void:
 	else:
 		if absf(to_goal.x) > 24.0:
 			move = signf(to_goal.x)
-		if to_goal.y < -60.0:
+		if to_goal.y < (-38.0 if goal_pickup else -60.0):
 			want_up = true
 		elif to_goal.y > 70.0:
 			want_down = true
@@ -214,14 +232,26 @@ func _navigate(p: Player, dt: float, i: PlayerInput, arena: Node) -> void:
 	else:
 		detour_dir = 0.0
 
-	# Going down: drop through catwalks, or walk off the ledge.
-	if want_down and support != null:
+	# Going down: drop through catwalks, or walk off the ledge (committing to
+	# one edge so we don't dither when the goal is right under the slab).
+	if want_down and support != null and p.is_on_floor():
+		var r: Rect2 = support
 		if arena.is_platform(support):
 			i.down = true
 			i.jump_pressed = true
-		elif absf(to_goal.x) < 40.0:
-			var r: Rect2 = support
-			move = -1.0 if (pos.x - r.position.x) < (r.end.x - pos.x) else 1.0
+		elif goal.x > r.position.x - 30.0 and goal.x < r.end.x + 30.0:
+			if drop_dir == 0.0 or drop_rect != r:
+				drop_rect = r
+				var left_cost := (pos.x - r.position.x) + absf(goal.x - r.position.x)
+				var right_cost := (r.end.x - pos.x) + absf(r.end.x - goal.x)
+				drop_dir = -1.0 if left_cost < right_cost else 1.0
+				if r.position.x <= 1.0:
+					drop_dir = 1.0
+				elif r.end.x >= arena.size.x - 1.0:
+					drop_dir = -1.0
+			move = drop_dir
+	elif not want_down or p.is_on_floor():
+		drop_dir = 0.0
 
 	# Walls in the way: hop / jet over them.
 	if absf(move) > 0.0 and p.is_on_wall():
@@ -246,8 +276,9 @@ func _navigate(p: Player, dt: float, i: PlayerInput, arena: Node) -> void:
 	# Jump on the ground, keep holding to jetpack when fuel allows.
 	if want_up:
 		if p.is_on_floor():
+			# Need a fresh press to jump: release for a frame if still held.
 			i.jump_pressed = not _jump_was_held
-			i.jump_held = true
+			i.jump_held = not _jump_was_held
 		else:
 			i.jump_held = p.fuel > 4.0 or p.velocity.y < 0.0
 	elif not i.jump_pressed:
@@ -256,6 +287,25 @@ func _navigate(p: Player, dt: float, i: PlayerInput, arena: Node) -> void:
 		if not p.is_on_floor() and p.velocity.y > 650.0 and p.fuel > 30.0:
 			i.jump_held = true
 	_jump_was_held = i.jump_held
+
+## Launch angle (low arc) to hit `delta` with a projectile of speed v under gravity g.
+func _lob_angle(delta: Vector2, v: float, g: float) -> float:
+	var x := absf(delta.x)
+	var y := -delta.y   # up is positive in the formula
+	var v2 := v * v
+	var disc := v2 * v2 - g * (g * x * x + 2.0 * y * v2)
+	var theta: float
+	if disc < 0.0 or x < 1.0:
+		theta = PI * 0.25 if x >= 1.0 else PI * 0.5 * signf(y)
+	else:
+		theta = atan((v2 - sqrt(disc)) / (g * x))
+	var dir := Vector2(cos(theta) * (1.0 if delta.x >= 0.0 else -1.0), -sin(theta))
+	return dir.angle()
+
+func _frag_angle(p: Player, delta: Vector2) -> float:
+	var frag := WeaponData.get_def("frag")
+	# The throw inherits half the thrower's velocity; compensate roughly.
+	return _lob_angle(delta - p.velocity * 0.5 * 0.6, float(frag["speed"]), float(frag["gravity"]))
 
 func _ceiling_above(arena: Node, pos: Vector2, goal_y: float) -> Variant:
 	var top := maxf(goal_y, pos.y - 400.0)
@@ -284,7 +334,7 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 	noise = lerpf(noise, noise_target, clampf(dt * 8.0, 0.0, 1.0))
 
 	if target and target_visible:
-		var tp := target.global_position + Vector2(0, -6)
+		var tp := target.global_position + Vector2(0, 2)
 		if def["kind"] == "hitscan" and level >= 2:
 			tp.y -= 12.0   # go for the head
 		var dist := origin.distance_to(tp)
@@ -292,8 +342,9 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 			var t: float = dist / float(def["speed"])
 			tp += target.velocity * t * float(cfg["lead"])
 		if def["kind"] == "grenade":
-			tp.y -= dist * 0.28
-		desired = (tp - origin).angle() + noise
+			desired = _lob_angle(tp - origin, float(def["speed"]), float(def["gravity"])) + noise
+		else:
+			desired = (tp - origin).angle() + noise
 		var in_range := dist < float(def["range"]) * 0.9
 		if def["id"] == "shotgun":
 			in_range = dist < 480.0
@@ -306,7 +357,7 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 			nade_cd = randf_range(1.0, 2.0)
 			if randf() < float(cfg["nade"]) * 6.0:
 				i.grenade = true
-				desired = (tp + Vector2(0, -dist * 0.35) - origin).angle()
+				desired = _frag_angle(p, tp - origin)
 	elif target and last_seen_age < 1.6 and last_seen_pos != Vector2.INF:
 		# Just lost sight: pre-aim where the enemy was, maybe lob a grenade.
 		var lp := last_seen_pos
@@ -316,7 +367,7 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 		if nade_cd <= 0.0 and p.grenades > 0 and dist < 520.0 and level >= 1:
 			nade_cd = randf_range(1.5, 3.0)
 			if randf() < float(cfg["nade"]) * 5.0:
-				desired = (lp + Vector2(0, -dist * 0.4) - origin).angle()
+				desired = _frag_angle(p, lp - origin)
 				i.grenade = true
 	else:
 		var look := goal - origin
@@ -328,6 +379,9 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 		if int(w["mag"]) < int(def["mag"]) / 2 and int(w["reserve"]) != 0:
 			i.reload = true
 
+	# A grenade throw snaps the aim for this frame (the throw uses i.aim now).
+	if i.grenade:
+		aim_angle = desired
 	aim_angle = rotate_toward(aim_angle, desired, float(cfg["turn"]) * dt)
 	i.aim = Vector2.from_angle(aim_angle)
 
@@ -339,6 +393,11 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 	var on_target := absf(angle_difference(aim_angle, desired)) < 0.25
 	i.shoot = have_shot and on_target and (bursting or not cfg["burst"])
 
+	# Back to the primary once out of the close-range pistol fallback.
+	if p.slot == 1 and not p.primary.is_empty() and not _ammo_low(p) and not i.swap:
+		var close := target_visible and target and origin.distance_to(target.global_position) < 250.0
+		if not close and not p.is_reloading() and randf() < 0.1:
+			i.swap = true
 	# Pick up a better weapon lying under us.
 	var fresh := Engine.get_physics_frames() - p.nearby_frame <= 1
 	if fresh and p.nearby_pickup and is_instance_valid(p.nearby_pickup) and p.nearby_pickup.kind == "weapon":

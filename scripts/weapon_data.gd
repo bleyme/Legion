@@ -17,7 +17,7 @@ const DEFAULTS := {
 
 var _db := {
 	"pistol": {
-		"name": "Pistolet", "damage": 20.0, "fire_rate": 0.2, "mag": 12, "reserve": -1,
+		"name": "Pistolet", "damage": 17.0, "fire_rate": 0.22, "mag": 12, "reserve": -1,
 		"speed": 1700.0, "spread": 0.025, "reload": 1.0, "knock": 50.0, "shake": 0.06,
 		"kick": 4.0, "muzzle": 26.0, "sound": "pistol", "range": 1200.0,
 	},

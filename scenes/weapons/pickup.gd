@@ -4,7 +4,7 @@ extends Node2D
 ## Walking over a weapon takes it if your primary slot is empty (or tops up
 ## ammo for the same gun); otherwise press "swap" to exchange weapons.
 
-const RESPAWN := {"weapon": 12.0, "health": 16.0, "frag": 14.0}
+const RESPAWN := {"weapon": 10.0, "health": 16.0, "frag": 14.0}
 const DROP_LIFETIME := 14.0
 const REACH := Vector2(26, 40)
 
@@ -45,6 +45,7 @@ func _physics_process(delta: float) -> void:
 			if Game.arena.is_solid(Vector2(next.x, position.y)):
 				vel.x = -vel.x * 0.3
 				next.x = position.x
+			next.x = clampf(next.x, 24.0, Game.arena.size.x - 24.0)   # stay reachable
 			position = next
 	if not active:
 		respawn_left -= delta
