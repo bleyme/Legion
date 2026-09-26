@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 Game="*res://scripts/game.gd"
 SoundManager="*res://scripts/sound_manager.gd"
 WeaponData="*res://scripts/weapon_data.gd"
+Music="*res://scripts/music.gd"
 
 [display]
 

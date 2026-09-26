@@ -41,6 +41,8 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	Game.load_settings()
 	Game.demo = true
+	Music.set_enabled(Game.music_on)
+	Music.play("menu")
 	add_child(MainScene.instantiate())
 	_build_ui()
 	_start.grab_focus()
@@ -126,7 +128,8 @@ func _build_ui() -> void:
 	_mode_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mode_button.add_item("Chacun pour soi")
 	_mode_button.add_item("Équipes (rouge vs bleue)")
-	_mode_button.select(1 if Game.mode == Game.MODE_TDM else 0)
+	_mode_button.add_item("Survie (vagues de bots)")
+	_mode_button.select({Game.MODE_FFA: 0, Game.MODE_TDM: 1, Game.MODE_SURVIVAL: 2}.get(Game.mode, 0))
 	_mode_button.item_selected.connect(func(_i): _apply())
 	mode_row.add_child(_mode_button)
 	right.add_child(mode_row)
@@ -229,6 +232,12 @@ func _build_ui() -> void:
 	shake.add_theme_font_size_override("font_size", 15)
 	shake.toggled.connect(func(on): Game.screen_shake = on; Game.save_settings())
 	opts.add_child(shake)
+	var music := CheckButton.new()
+	music.text = "Musique"
+	music.button_pressed = Game.music_on
+	music.add_theme_font_size_override("font_size", 15)
+	music.toggled.connect(_on_music)
+	opts.add_child(music)
 
 	# ---- controls overlay ---------------------------------------------------------
 	_controls = PanelContainer.new()
@@ -258,6 +267,11 @@ func _build_ui() -> void:
 	close.pressed.connect(_close_controls)
 	cv.add_child(close)
 	_apply()
+
+func _on_music(on: bool) -> void:
+	Game.music_on = on
+	Music.set_enabled(on)
+	Game.save_settings()
 
 func _on_volume(v: float) -> void:
 	Game.volume = v
@@ -294,7 +308,10 @@ func _apply() -> void:
 	for i in _slot_buttons.size():
 		var c: Dictionary = SLOT_CHOICES[_slot_buttons[i].selected]
 		Game.slots[i] = {"type": c["type"], "device": int(c.get("device", 0)), "level": int(c.get("level", 1)), "team": _slot_teams[i]}
-	Game.mode = Game.MODE_TDM if _mode_button.selected == 1 else Game.MODE_FFA
+	Game.mode = [Game.MODE_FFA, Game.MODE_TDM, Game.MODE_SURVIVAL][_mode_button.selected]
+	var surv := Game.mode == Game.MODE_SURVIVAL
+	_frag_button.disabled = surv
+	_time_button.disabled = surv
 	for i in _team_buttons.size():
 		var tb := _team_buttons[i]
 		var t := _slot_teams[i]
@@ -309,7 +326,12 @@ func _apply() -> void:
 	Game.arsenal = Game.ARSENALS[_arsenal_button.selected]["id"]
 	Game.frag_limit = FRAG_CHOICES[_frag_button.selected]
 	Game.time_limit = TIME_CHOICES[_time_button.selected]
-	_map_desc.text = MapData.all()[Game.map_index]["desc"]
+	var map: Dictionary = MapData.all()[Game.map_index]
+	_map_desc.text = map["desc"]
+	if surv:
+		var best := int(Game.best_waves.get(map["name"], 0))
+		_map_desc.text = "Survie : les bots des slots sont ignorés, ils arrivent par vagues. " \
+			+ ("Record : vague %d." % best if best > 0 else "Aucun record pour l'instant.")
 	_error.text = _validate()
 	_start.disabled = _error.text != ""
 	_error.remove_theme_color_override("font_color")
@@ -333,6 +355,10 @@ func _validate() -> String:
 		if s["type"] != "bot" and seen.has(key):
 			return "Chaque contrôleur ne peut servir qu'à un joueur."
 		seen[key] = true
+	if Game.mode == Game.MODE_SURVIVAL:
+		if not Game.slots.any(func(x): return x["type"] not in ["off", "bot"]):
+			return "La survie demande au moins un joueur humain."
+		return ""
 	if count < 2:
 		return "Il faut au moins deux combattants."
 	if Game.mode == Game.MODE_TDM:

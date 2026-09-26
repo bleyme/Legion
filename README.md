@@ -15,6 +15,10 @@ en local (clavier, souris, manettes).
 - **Chacun pour soi** : le premier à atteindre la limite de frags gagne.
 - **Équipes** (rouge contre bleue) : pas de tir ami, les balles traversent les alliés.
   Parfait pour jouer à deux en coopération contre des bots.
+- **Survie** (solo ou coop) : des vagues de bots de plus en plus nombreux et
+  précis, une vague d'élite toutes les 5. Trois vies chacun, une vie bonus toutes
+  les 3 vagues, soins complets entre les vagues. Le record de vague est
+  sauvegardé pour chaque arène. Les armes de la carte sont réservées aux héros.
 
 Chaque emplacement de joueur (six au maximum) peut être : clavier + souris,
 clavier seul (flèches), manette 1 à 4, ou un bot de niveau **Recrue**, **Soldat**,
@@ -79,6 +83,8 @@ qui disparaît dès qu'on tire.
   frames, donc même les balles de sniper ne traversent jamais une plateforme.
 - `scenes/fx/fx.gd` : toutes les particules dans des tableaux compacts, dessinées
   en deux passes (normale + additive) au lieu d'un nœud par étincelle.
+- `scripts/music.gd` : bande-son (menu et combat) composée et synthétisée au
+  démarrage sur un thread séparé, avec fondu enchaîné.
 - `scripts/sound_manager.gd` : sons synthétisés au démarrage, joués via un
   ensemble fixe de voix spatialisées (aucune allocation pendant le jeu).
 - `scenes/main/` : règles du match, caméra partagée, HUD, pause et fin de partie.

@@ -58,9 +58,10 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var frame := Engine.get_physics_frames()
+	var horde: bool = Game.world != null and Game.world.survival
 	for p in Game.active_players():
-		if p.dead:
-			continue
+		if p.dead or (horde and not p.is_human and kind != "health"):
+			continue   # survival: map loot is for the heroes
 		var d: Vector2 = (p.global_position - global_position).abs()
 		if d.x > REACH.x or d.y > REACH.y:
 			continue

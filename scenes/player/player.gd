@@ -69,6 +69,8 @@ var hit_marker_kill := false
 var last_hit_by: Node = null
 var jet_sound_cd := 0.0
 var respawn_left := 0.0
+var lives := -1          # survival only; -1 = unlimited
+var retired := false     # out of the match (survival), never respawns
 var hurt_dir := Vector2.ZERO    # toward the last attacker, for the HUD indicator
 var hurt_dir_time := 0.0
 var killed_by := ""
@@ -488,6 +490,8 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 		return
 	if attacker is Player and attacker != self and not Game.is_enemy(attacker, self):
 		return   # no friendly fire
+	if is_human and Game.world and Game.world.survival and attacker is Player and not attacker.is_human:
+		amount *= 0.5   # horde mode: the heroes are tougher than the grunts
 	if shield > 0.0 and attacker != self:
 		Game.fx.impact(at, -push.normalized() if push != Vector2.ZERO else Vector2.UP, Color(0.5, 0.8, 1.0))
 		return

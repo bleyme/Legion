@@ -114,8 +114,11 @@ func _think(p: Player) -> void:
 	var best_pick: Node = null
 	var best_pick_d := INF
 	var now := Time.get_ticks_msec()
+	var horde: bool = Game.world.survival and not p.is_human
 	for pk in Game.world.pickups:
 		if not pk.active or int(ignored.get(pk, 0)) > now:
+			continue
+		if horde and pk.kind != "health":
 			continue
 		var d: float = p.global_position.distance_to(pk.global_position)
 		var useful := false

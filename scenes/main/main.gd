@@ -24,6 +24,14 @@ var pickups: Array = []
 var time_left := -1.0
 var team_scores := [0, 0]
 var teams := false
+var survival := false
+var wave := 0
+var wave_break := 0.0
+var wave_pending := 0
+var _spawn_cd := 0.0
+var _map_name := ""
+const SURVIVAL_LIVES := 3
+const ENEMY_COLOR := Color(0.85, 0.22, 0.18)
 var match_over := false
 var first_blood := false
 var _demo := false
@@ -40,16 +48,19 @@ var _slowmo := 0.0
 var countdown := 0.0
 var _intro_sub := ""
 var _last_count := -1
+var _prev_best := 0
 
 func _ready() -> void:
 	_demo = Game.demo
 	teams = Game.teams()
+	survival = Game.survival()
 	Game.world = self
 	Engine.time_scale = 1.0
 	var maps := MapData.all()
 	var map: Dictionary = maps[clampi(Game.map_index, 0, maps.size() - 1)]
 	if _demo:
 		map = maps[randi() % maps.size()]
+	_map_name = map["name"]
 
 	var bg_layer := CanvasLayer.new()
 	bg_layer.layer = -10
@@ -107,7 +118,7 @@ func _ready() -> void:
 	_hud_layer.visible = not _demo
 
 	_spawn_players()
-	if Game.time_limit > 0.0 and not _demo:
+	if Game.time_limit > 0.0 and not _demo and not survival:
 		time_left = Game.time_limit
 	_build_pause()
 	_build_end()
@@ -119,6 +130,7 @@ func _ready() -> void:
 					sub += " · " + a["name"]
 		_intro_sub = sub
 		countdown = COUNTDOWN
+		Music.play("combat")
 		_hud.show_hints(players)
 		var has_mouse := players.any(func(p): return p.is_mouse_user)
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if has_mouse else Input.MOUSE_MODE_VISIBLE
@@ -157,6 +169,8 @@ func _spawn_players() -> void:
 	for s in slots:
 		if s["type"] == Game.SLOT_OFF:
 			continue
+		if survival and s["type"] == Game.SLOT_BOT:
+			continue   # survival: bots come in waves instead
 		var p: Player = PlayerScene.instantiate()
 		var ctrl: RefCounted
 		var human := true
@@ -183,7 +197,10 @@ func _spawn_players() -> void:
 		else:
 			nm = names[idx % names.size()]
 		var col: Color = Game.PLAYER_COLORS[idx % Game.PLAYER_COLORS.size()]
-		if teams:
+		if survival:
+			p.team = 0
+			p.lives = SURVIVAL_LIVES
+		elif teams:
 			p.team = int(s.get("team", idx % 2))
 			var mates := players.filter(func(o): return o.team == p.team).size()
 			col = Game.TEAM_COLORS[p.team].lightened(mates * 0.12)
@@ -269,8 +286,11 @@ func _process(delta: float) -> void:
 		if time_left <= 0.0:
 			_end_match()
 
+	if survival:
+		_survival_tick(delta)
+
 	for p in players:
-		if p.dead:
+		if p.dead and not p.retired:
 			p.respawn_left -= delta
 			if p.respawn_left <= 0.0:
 				p.respawn(_pick_spawn(p))
@@ -282,6 +302,9 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 	var k := killer as Player
 	_hud.add_kill(killer, victim, weapon_id, headshot)
 	if match_over:
+		return
+	if survival:
+		_survival_death(victim, k, headshot)
 		return
 	if k and k != victim:
 		victim.killed_by = k.display_name
@@ -309,6 +332,118 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 			team_scores[victim.team] = maxi(0, team_scores[victim.team] - 1)
 		if victim.is_human:
 			_hud.announce("SUICIDE", Color(0.8, 0.8, 0.8), "-1 frag", 1.4)
+
+# --------------------------------------------------------------------------
+# Survival: endless waves of bots against the humans
+# --------------------------------------------------------------------------
+
+func enemies_left() -> int:
+	var n := wave_pending
+	for p in players:
+		if not p.is_human and not p.dead:
+			n += 1
+	return n
+
+func _survival_tick(delta: float) -> void:
+	if wave_break > 0.0:
+		wave_break -= delta
+		if wave_break <= 0.0:
+			_start_wave()
+		return
+	if wave == 0:
+		wave_break = 1.0
+		return
+	# Trickle enemies in, never too many alive at once.
+	_spawn_cd -= delta
+	var alive := 0
+	for p in players:
+		if not p.is_human and not p.dead:
+			alive += 1
+	var cap := mini(2 + wave / 3, 7)
+	if wave_pending > 0 and alive < cap and _spawn_cd <= 0.0:
+		_spawn_cd = maxf(0.35, 1.2 - wave * 0.06)
+		wave_pending -= 1
+		_spawn_enemy()
+	if wave_pending == 0 and alive == 0:
+		_wave_cleared()
+
+func _start_wave() -> void:
+	wave += 1
+	wave_pending = mini(3 + wave + wave / 2, 30)
+	_spawn_cd = 0.5
+	var sub := "%d ennemis" % wave_pending
+	if wave % 5 == 0:
+		sub += " · vague d'élite"
+	_hud.announce("VAGUE %d" % wave, ENEMY_COLOR.lightened(0.3), sub, 2.0)
+	SoundManager.play("announce", Vector2.INF, -4.0)
+
+func _wave_cleared() -> void:
+	wave_break = 5.0
+	var bonus := ""
+	for p in players:
+		if not p.is_human:
+			continue
+		if p.retired or p.dead:
+			continue
+		p.health = Player.MAX_HEALTH
+		p.grenades = maxi(p.grenades, Player.START_GRENADES)
+	if wave % 3 == 0:
+		for p in players:
+			if p.is_human and p.lives >= 0:
+				p.lives += 1
+				if p.retired:
+					p.retired = false
+					p.respawn(_pick_spawn(p))
+		bonus = " · +1 vie"
+	_hud.announce("VAGUE %d NETTOYÉE" % wave, UITheme.ACCENT, "Soins complets" + bonus, 2.2)
+	SoundManager.play("health", Vector2.INF, -4.0)
+
+func _spawn_enemy() -> void:
+	# Difficulty ramps with the wave number; elite waves are all veterans+.
+	var level := clampi((wave - 1) / 4 + (randi() % 2 if wave > 4 else 0), 0, 3)
+	if wave % 5 == 0:
+		level = mini(level + 1, 3)   # elite wave
+	var p: Player = null
+	for other in players:
+		if not other.is_human and other.retired:
+			p = other
+			break
+	if p == null:
+		p = PlayerScene.instantiate()
+		var nm: String = Game.BOT_NAMES[players.size() % Game.BOT_NAMES.size()]
+		p.setup(players.size() + 1, nm, ENEMY_COLOR.darkened(randf() * 0.35), null, false, false)
+		p.team = 1
+		_player_root.add_child(p)
+		p.died.connect(_on_player_died)
+		players.append(p)
+	p.controller = BotController.new(level)
+	p.retired = false
+	p.respawn(_pick_spawn(p))
+	p.shield = 0.4
+	if randf() < clampf(0.1 * (wave - 2), 0.0, 0.8):
+		p.give_weapon(WeaponData.random_pickup_id())
+
+func _survival_death(victim: Player, k: Player, headshot: bool) -> void:
+	if not victim.is_human:
+		victim.retired = true
+		if k and k.is_human:
+			k.kills += 1
+			k.streak += 1
+			k.best_streak = maxi(k.best_streak, k.streak)
+			k.multi_kills = k.multi_kills + 1 if k.multi_timer > 0.0 else 1
+			k.multi_timer = 3.0
+			SoundManager.play("kill", Vector2.INF, -6.0)
+			_announce_kill(k, victim, headshot)
+			_hitstop_now(0.05)
+		return
+	if k and k != victim:
+		victim.killed_by = k.display_name
+	victim.lives -= 1
+	if victim.lives <= 0:
+		victim.retired = true
+		_hud.announce("%s EST TOMBÉ" % victim.display_name, Color(1.0, 0.35, 0.3), "", 1.6)
+	if players.all(func(p): return not p.is_human or p.retired):
+		_end_match()
 
 func _announce_kill(k: Player, victim: Player, headshot: bool) -> void:
 	if _demo:
@@ -347,10 +482,17 @@ func _end_match() -> void:
 		p.input = PlayerInput.new()
 	_slowmo = 1.2
 	Engine.time_scale = 0.25
+	if survival:
+		_prev_best = int(Game.best_waves.get(_map_name, 0))
+		if wave > _prev_best:
+			Game.best_waves[_map_name] = wave
+			Game.save_settings()
 	_hud.announce("FIN DU MATCH", UITheme.ACCENT, _winner_text(), 2.0)
 	SoundManager.play("announce", Vector2.INF, -4.0)
 
 func _winner_text() -> String:
+	if survival:
+		return "Vague %d atteinte" % wave
 	if teams:
 		if team_scores[0] == team_scores[1]:
 			return "Égalité !"
@@ -449,9 +591,18 @@ func _show_end() -> void:
 		var wt := 0 if team_scores[0] > team_scores[1] else 1
 		title_text = "ÉGALITÉ %d – %d" % team_scores if tie else "ÉQUIPE %s GAGNE %d – %d" % [Game.TEAM_NAMES[wt], team_scores[wt], team_scores[1 - wt]]
 		title_col = UITheme.ACCENT if tie else Game.TEAM_COLORS[wt]
+	if survival:
+		ranking = ranking.filter(func(p): return p.is_human)
+		title_text = "VAGUE %d ATTEINTE" % wave
+		title_col = ENEMY_COLOR.lightened(0.35)
 	var title := UITheme.label(title_text, 44, title_col)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+	if survival:
+		var rec := "NOUVEAU RECORD !" if wave > _prev_best else "Record sur %s : vague %d" % [_map_name, _prev_best]
+		var rl := UITheme.label(rec, 20, UITheme.ACCENT if wave > _prev_best else UITheme.DIM)
+		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(rl)
 
 	var grid := GridContainer.new()
 	grid.columns = 7

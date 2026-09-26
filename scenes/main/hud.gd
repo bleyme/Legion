@@ -140,6 +140,9 @@ func _draw_card(p: Player, at: Vector2) -> void:
 	var x := at.x + 16
 	_text(Vector2(x, at.y + 20), p.display_name, 16, p.color.lightened(0.25))
 	_text(Vector2(at.x, at.y + 20), "%d frags" % p.kills, 14, UITheme.TEXT, HORIZONTAL_ALIGNMENT_RIGHT, CARD_SIZE.x - 12, 3)
+	if p.lives >= 0:
+		for l in p.lives:
+			_heart(Vector2(x + 60 + l * 16, at.y + 13), Color(1.0, 0.3, 0.3))
 
 	# health
 	var hb := Rect2(x, at.y + 28, 180, 14)
@@ -181,8 +184,24 @@ func _draw_card(p: Player, at: Vector2) -> void:
 		var other: String = p.sidearm["id"] if p.slot == 0 else p.primary["id"]
 		_text(Vector2(at.x, at.y + 62), "%s ▸ %s" % [p.swap_hint, WeaponData.get_def(other)["name"]], 11, UITheme.DIM, HORIZONTAL_ALIGNMENT_RIGHT, CARD_SIZE.x - 12, 0)
 
+func _heart(c: Vector2, col: Color) -> void:
+	draw_circle(c + Vector2(-3, -1), 3.6, col)
+	draw_circle(c + Vector2(3, -1), 3.6, col)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-6.5, 0), c + Vector2(6.5, 0), c + Vector2(0, 7)]), col)
+
 func _draw_timer(world: Node, vs: Vector2) -> void:
 	var cx := vs.x * 0.5
+	if world.survival:
+		var red: Color = world.ENEMY_COLOR
+		draw_rect(Rect2(cx - 110, 8, 220, 50), Color(0.03, 0.04, 0.07, 0.75))
+		draw_rect(Rect2(cx - 110, 8, 220, 3), red)
+		var title := "VAGUE %d" % world.wave if world.wave > 0 else "PRÉPAREZ-VOUS"
+		_text(Vector2(cx - 110, 36), title, 24, red.lightened(0.35), HORIZONTAL_ALIGNMENT_CENTER, 220)
+		var sub := "Ennemis restants : %d" % world.enemies_left()
+		if world.wave_break > 0.0 and world.wave > 0:
+			sub = "Prochaine vague dans %d" % int(ceil(world.wave_break))
+		_text(Vector2(cx - 110, 52), sub, 12, UITheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 220, 0)
+		return
 	var text := "∞"
 	if world.time_left >= 0.0:
 		var s := int(ceil(world.time_left))
@@ -202,6 +221,8 @@ func _draw_timer(world: Node, vs: Vector2) -> void:
 	_text(Vector2(cx - 70, 48), "Objectif : %d frags" % Game.frag_limit if Game.frag_limit > 0 else "Sans limite", 11, UITheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 140, 0)
 
 func _draw_scoreboard(players: Array, vs: Vector2) -> void:
+	if Game.world and Game.world.survival:
+		players = players.filter(func(p): return p.is_human)
 	var sorted := players.duplicate()
 	sorted.sort_custom(func(a, b):
 		if a.team != b.team:
@@ -323,6 +344,10 @@ func _draw_hurt_dir(p: Player) -> void:
 
 func _draw_death(p: Player, vs: Vector2, human_count: int) -> void:
 	var t := "Réapparition dans %.1f" % maxf(p.respawn_left, 0.0)
+	if p.retired:
+		t = "Plus de vies — tiens bon, camarade !" if Game.world.players.any(func(o): return o.is_human and not o.retired) else ""
+	elif p.lives >= 0:
+		t += " · %d vie%s" % [p.lives, "s" if p.lives > 1 else ""]
 	if human_count == 1:
 		draw_rect(Rect2(0, vs.y * 0.55 - 36, vs.x, 70), Color(0, 0, 0, 0.45))
 		var who := "ÉLIMINÉ" if p.killed_by == "" else "ÉLIMINÉ PAR %s" % p.killed_by

@@ -33,6 +33,7 @@ var slots: Array = [
 ]
 const MODE_FFA := "ffa"
 const MODE_TDM := "tdm"
+const MODE_SURVIVAL := "survival"
 const TEAM_COLORS := [Color(1.0, 0.38, 0.3), Color(0.32, 0.62, 1.0)]
 const TEAM_NAMES := ["ROUGE", "BLEUE"]
 
@@ -48,6 +49,7 @@ const ARSENALS := [
 var arsenal := "all"
 var volume := 0.8          # master volume, 0..1
 var screen_shake := true
+var music_on := true
 var map_index  := 0
 var frag_limit := 15
 var time_limit := 300.0   # seconds, 0 = unlimited
@@ -117,7 +119,13 @@ func instagib() -> bool:
 	return arsenal_weapon() == "railgun"
 
 func teams() -> bool:
-	return mode == MODE_TDM and not demo
+	return (mode == MODE_TDM or mode == MODE_SURVIVAL) and not demo
+
+func survival() -> bool:
+	return mode == MODE_SURVIVAL and not demo
+
+## Best survival wave per map name.
+var best_waves := {}
 
 ## True if `b` is someone `a` should shoot at.
 func is_enemy(a: Node, b: Node) -> bool:
@@ -201,6 +209,8 @@ func save_settings() -> void:
 	cfg.set_value("match", "arsenal", arsenal)
 	cfg.set_value("options", "volume", volume)
 	cfg.set_value("options", "screen_shake", screen_shake)
+	cfg.set_value("options", "music", music_on)
+	cfg.set_value("records", "best_waves", best_waves)
 	cfg.save(SETTINGS_PATH)
 
 func load_settings() -> void:
@@ -217,6 +227,10 @@ func load_settings() -> void:
 	arsenal = str(cfg.get_value("match", "arsenal", arsenal))
 	volume = float(cfg.get_value("options", "volume", volume))
 	screen_shake = bool(cfg.get_value("options", "screen_shake", screen_shake))
+	music_on = bool(cfg.get_value("options", "music", music_on))
+	var bw = cfg.get_value("records", "best_waves", {})
+	if bw is Dictionary:
+		best_waves = bw
 	apply_volume()
 	for i in slots.size():
 		if not slots[i].has("team"):
