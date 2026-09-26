@@ -19,6 +19,11 @@ en local (clavier, souris, manettes).
   précis, une vague d'élite toutes les 5. Trois vies chacun, une vie bonus toutes
   les 3 vagues, soins complets entre les vagues. Le record de vague est
   sauvegardé pour chaque arène. Les armes de la carte sont réservées aux héros.
+  Toutes les 5 vagues, un **boss** aux attaques lisibles mais brutales :
+  **le Mastodonte** (minigun, quasi inébranlable, onde de choc au corps à corps),
+  **le Spectre** (sniper qui se téléporte ; son laser vous laisse le temps
+  d'esquiver), **la Reine des Moutons** (troupeaux kamikazes et saintes
+  grenades). Le vaincre rend une vie à chacun.
 
 Chaque emplacement de joueur (six au maximum) peut être : clavier + souris,
 clavier seul (flèches), manette 1 à 4, ou un bot de niveau **Recrue**, **Soldat**,

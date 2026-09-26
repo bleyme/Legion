@@ -100,6 +100,13 @@ var jet_sound_cd := 0.0
 var respawn_left := 0.0
 var lives := -1          # survival only; -1 = unlimited
 var retired := false     # out of the match (survival), never respawns
+# bosses
+var boss := ""           # "", "brute", "spectre", "queen"
+var boss_title := ""
+var max_health := MAX_HEALTH
+var visual_scale := 1.0
+var _boss_cd := 0.0
+var _boss_cd2 := 0.0
 var hurt_dir := Vector2.ZERO    # toward the last attacker, for the HUD indicator
 var hurt_dir_time := 0.0
 var killed_by := ""
@@ -177,10 +184,12 @@ func _physics_process(delta: float) -> void:
 	_move(delta)
 	_aim()
 	_weapons(delta)
+	if boss != "":
+		_boss_tick(delta)
 	queue_redraw()
 
 func _update_crouch() -> void:
-	var want := (input.down or sliding) and is_on_floor() and not input.jump_pressed
+	var want := (input.down or sliding) and is_on_floor() and not input.jump_pressed and boss == ""
 	if want == crouching:
 		return
 	if not want:
@@ -394,6 +403,124 @@ func style(text: String) -> void:
 	style_cd = 0.6
 	Game.fx.popup(global_position + Vector2(0, -60), text, Color(1.0, 0.8, 0.25), 14)
 
+# --------------------------------------------------------------------------
+# Bosses (survival): big, tough, and every attack is telegraphed
+# --------------------------------------------------------------------------
+
+var _base_name := ""
+
+func make_boss(kind: String) -> void:
+	if _base_name == "":
+		_base_name = display_name
+	boss = kind
+	display_name = {"brute": "Mastodonte", "spectre": "Spectre", "queen": "Reine des Moutons"}.get(kind, _base_name)
+	var cap: CapsuleShape2D = shape_node.shape
+	match kind:
+		"brute":
+			boss_title = "LE MASTODONTE"
+			max_health = 1100.0
+			visual_scale = 1.55
+			color = Color(0.55, 0.12, 0.1)
+			primary = {"id": "minigun", "mag": 120, "reserve": 99999}
+		"spectre":
+			boss_title = "LE SPECTRE"
+			max_health = 650.0
+			visual_scale = 1.25
+			color = Color(0.55, 0.3, 0.9)
+			primary = {"id": "sniper", "mag": 5, "reserve": 99999}
+		"queen":
+			boss_title = "LA REINE DES MOUTONS"
+			max_health = 1000.0
+			visual_scale = 1.45
+			color = Color(0.95, 0.9, 0.8)
+			primary = {"id": "rifle", "mag": 30, "reserve": 99999}
+		_:
+			boss_title = ""
+			max_health = MAX_HEALTH
+			visual_scale = 1.0
+	cap.radius = 11.0 * visual_scale
+	cap.height = STAND_HEIGHT * visual_scale
+	health = max_health
+	slot = 0 if not primary.is_empty() else 1
+	_boss_cd = 3.0
+	_boss_cd2 = 6.0
+	_refresh_gun()
+
+func _nearest_enemy(max_d: float) -> Player:
+	var best: Player = null
+	var bd := max_d
+	for o in Game.active_players():
+		if o.dead or not Game.is_enemy(self, o):
+			continue
+		var d: float = global_position.distance_to(o.global_position)
+		if d < bd:
+			bd = d
+			best = o
+	return best
+
+func _boss_tick(delta: float) -> void:
+	_boss_cd -= delta
+	_boss_cd2 -= delta
+	match boss:
+		"brute":
+			# Ground pound when someone gets in close: jump, then a shockwave.
+			var e := _nearest_enemy(150.0)
+			if e and is_on_floor() and _boss_cd <= 0.0:
+				_boss_cd = 3.5
+				velocity.y = -520.0
+				Game.fx.popup(global_position + Vector2(0, -90), "!!", Color(1.0, 0.3, 0.2), 26)
+				get_tree().create_timer(0.55, false).timeout.connect(_ground_pound)
+		"spectre":
+			# Blinks somewhere else every few seconds.
+			if _boss_cd <= 0.0:
+				_boss_cd = randf_range(4.0, 5.5)
+				var spots: Array = Game.arena.spawns.duplicate()
+				spots.shuffle()
+				var e := _nearest_enemy(99999.0)
+				for sp in spots:
+					var d: float = e.global_position.distance_to(sp) if e else 500.0
+					if d > 320.0 and d < 900.0:
+						Game.fx.spawn_burst(global_position, color)
+						global_position = sp + Vector2(0, -36)
+						reset_physics_interpolation()
+						velocity = Vector2.ZERO
+						Game.fx.spawn_burst(global_position, color)
+						SoundManager.play("spawn", global_position, 0.0, 0.6)
+						break
+		"queen":
+			var e := _nearest_enemy(1400.0)
+			if e == null:
+				return
+			var to := (e.global_position - aim_origin()).normalized()
+			if _boss_cd <= 0.0:
+				_boss_cd = 3.6
+				var flock := WeaponData.get_def("sheep")
+				Game.projectiles.fire(self, aim_origin() + Vector2(0, 20), Vector2(signf(to.x) * 0.8, -0.6).normalized(), flock)
+				Game.fx.popup(global_position + Vector2(0, -80), "BÊÊÊ !", Color(1, 1, 1), 18)
+				SoundManager.play("baa", global_position, 2.0, 0.7)
+			if _boss_cd2 <= 0.0:
+				_boss_cd2 = 11.0
+				Game.fx.popup(global_position + Vector2(0, -95), "ALLÉLUIA", Color(1.0, 0.85, 0.3), 20)
+				var holy := WeaponData.get_def("holy")
+				Game.projectiles.fire(self, aim_origin(), (to + Vector2(0, -0.6)).normalized(), holy)
+
+func _ground_pound() -> void:
+	if dead:
+		return
+	var pos := global_position + Vector2(0, 40)
+	Game.fx.explosion(pos, 150.0)
+	Game.shake(0.8, pos)
+	SoundManager.play("explosion", pos, 4.0, 0.6)
+	if Game.arena and Game.arena.has_method("carve"):
+		Game.arena.carve(pos + Vector2(0, 10), 55.0)
+	for o in Game.active_players():
+		if o.dead or not Game.is_enemy(self, o):
+			continue
+		var d: float = o.global_position.distance_to(pos)
+		if d < 170.0:
+			var push: Vector2 = ((o.global_position - pos).normalized() + Vector2(0, -0.8)).normalized() * 700.0
+			o.take_damage(45.0 * (1.0 - d / 220.0), push, self, "minigun", false, o.global_position)
+
 ## Climb small ledges (crater rims, rubble) instead of getting stuck on them.
 func _step_up() -> void:
 	if not is_on_floor() or not is_on_wall() or absf(input.move) < 0.1:
@@ -423,8 +550,8 @@ func _aim() -> void:
 	if absf(a.x) > 0.05:
 		facing = signf(a.x)
 	gun_pivot.rotation = a.angle()
-	gun_pivot.scale.y = -1.0 if facing < 0 else 1.0
-	gun_pivot.position = Vector2(0, -10 + (9 if crouching else 0))
+	gun_pivot.scale = Vector2(visual_scale, visual_scale * (-1.0 if facing < 0 else 1.0))
+	gun_pivot.position = Vector2(0, (-10 + (9 if crouching else 0)) * visual_scale)
 	kick = move_toward(kick, 0.0, 60.0 * get_physics_process_delta_time())
 	gun_sprite.position.x = -kick
 	gun_arm.position.x = -kick
@@ -489,7 +616,7 @@ func _fire(w: Dictionary, def: Dictionary) -> void:
 	if dir == Vector2.ZERO:
 		dir = Vector2(facing, 0)
 	var pivot := aim_origin()
-	var origin := pivot + dir * float(def["muzzle"])
+	var origin := pivot + dir * float(def["muzzle"]) * visual_scale
 	# Never let the muzzle poke through a wall.
 	var q := PhysicsRayQueryParameters2D.create(global_position + Vector2(0, -10), origin, 1)
 	var r := get_world_2d().direct_space_state.intersect_ray(q)
@@ -616,9 +743,9 @@ func give_weapon(id: String, mag := -1, reserve := -1, force := false) -> bool:
 	return true
 
 func give_health(amount: float) -> bool:
-	if health >= MAX_HEALTH:
+	if health >= max_health:
 		return false
-	health = minf(MAX_HEALTH, health + amount)
+	health = minf(max_health, health + amount)
 	SoundManager.play("health", global_position, -4.0)
 	return true
 
@@ -639,7 +766,7 @@ func rumble(strength: float, duration: float) -> void:
 
 func is_head_hit(p: Vector2) -> bool:
 	# Top ~16px of the body (helmet and face) counts as the head.
-	var head_line := global_position.y - 13.0 + (18.0 if crouching else 0.0)
+	var head_line := global_position.y - 13.0 * visual_scale + (18.0 if crouching else 0.0)
 	return p.y < head_line
 
 func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String, headshot: bool, at: Vector2) -> void:
@@ -652,6 +779,10 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 	if shield > 0.0 and attacker != self:
 		Game.fx.impact(at, -push.normalized() if push != Vector2.ZERO else Vector2.UP, Color(0.5, 0.8, 1.0))
 		return
+	if boss == "brute":
+		push *= 0.15
+	elif boss != "":
+		push *= 0.5
 	if push.y < -250.0 and Time.get_ticks_msec() - last_jump_press < 160:
 		push *= 1.4   # jumped right as the blast hit: perfect launch
 		style("ENVOL PARFAIT")
@@ -723,14 +854,15 @@ func respawn(at: Vector2) -> void:
 	global_position = at
 	reset_physics_interpolation()   # teleport, don't smear across the map
 	velocity = Vector2.ZERO
-	health = MAX_HEALTH
+	health = max_health
 	fuel = FUEL_MAX
 	dead = false
 	crouching = false
 	sliding = false
 	rope_state = 0
 	var cap: CapsuleShape2D = shape_node.shape
-	cap.height = STAND_HEIGHT
+	cap.height = STAND_HEIGHT * visual_scale
+	cap.radius = 11.0 * visual_scale
 	shape_node.position.y = 0
 	shape_node.set_deferred("disabled", false)
 	primary = {}
@@ -768,17 +900,17 @@ func _draw() -> void:
 		draw_line(hand, tip, Color(0.05, 0.05, 0.06), 3.0)
 		draw_line(hand, tip, Color(0.75, 0.7, 0.55), 1.4)
 		draw_circle(tip, 3.5, Color(0.6, 0.62, 0.66))
-	var top := -44.0
+	var top := -44.0 * visual_scale
 	# name tag
 	var name_w := _font.get_string_size(display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
 	var name_pos := Vector2(-name_w * 0.5, top - 8)
 	draw_string_outline(_font, name_pos, display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.7))
 	draw_string(_font, name_pos, display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color.lightened(0.2))
 	# health bar
-	if health < MAX_HEALTH or recent_damage > 0.0:
+	if (health < max_health or recent_damage > 0.0) and boss == "":
 		var w := 36.0
 		draw_rect(Rect2(-w * 0.5 - 1, top - 3, w + 2, 6), Color(0, 0, 0, 0.7))
-		var frac := health / MAX_HEALTH
+		var frac := health / max_health
 		var hc := Color(0.3, 0.9, 0.3).lerp(Color(1.0, 0.2, 0.1), 1.0 - frac)
 		draw_rect(Rect2(-w * 0.5, top - 2, w * frac, 4), hc)
 	# reload progress

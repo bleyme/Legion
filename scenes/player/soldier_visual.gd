@@ -24,7 +24,7 @@ func _process(delta: float) -> void:
 			SoundManager.play("step", player.global_position + Vector2(0, 28), -18.0 if player.is_human else -24.0)
 	else:
 		walk_time = lerpf(walk_time, roundf(walk_time / PI) * PI, delta * 8.0)
-	scale.x = player.facing
+	scale = Vector2(player.facing, 1.0) * player.visual_scale
 	if player.hurt_flash > 0.0:
 		modulate = Color(3.0, 3.0, 3.0)
 	elif player.shield > 0.0:

@@ -31,6 +31,13 @@ var wave_pending := 0
 var _spawn_cd := 0.0
 var _map_name := ""
 const SURVIVAL_LIVES := 3
+const BOSSES := ["brute", "spectre", "queen"]
+const BOSS_LINES := {
+	"brute": "Il ne recule devant rien. Surtout pas devant toi.",
+	"spectre": "Suis le laser. Ou meurs.",
+	"queen": "Bêêêê. BÊÊÊÊÊ.",
+}
+var boss: Player = null
 const ENEMY_COLOR := Color(0.85, 0.22, 0.18)
 var match_over := false
 var first_blood := false
@@ -376,7 +383,13 @@ func _start_wave() -> void:
 	_spawn_cd = 0.5
 	var sub := "%d ennemis" % wave_pending
 	if wave % 5 == 0:
-		sub += " · vague d'élite"
+		wave_pending = 1 + wave / 5
+		var kind: String = BOSSES[(wave / 5 - 1) % BOSSES.size()]
+		boss = _spawn_enemy(kind)
+		_hud.announce(boss.boss_title, boss.color.lightened(0.3), BOSS_LINES[kind], 3.0)
+		SoundManager.play("hallelujah", Vector2.INF, -2.0, 0.5)
+		Game.shake(0.6)
+		return
 	_hud.announce("VAGUE %d" % wave, ENEMY_COLOR.lightened(0.3), sub, 2.0)
 	SoundManager.play("announce", Vector2.INF, -4.0)
 
@@ -401,7 +414,7 @@ func _wave_cleared() -> void:
 	_hud.announce("VAGUE %d NETTOYÉE" % wave, UITheme.ACCENT, "Soins complets" + bonus, 2.2)
 	SoundManager.play("health", Vector2.INF, -4.0)
 
-func _spawn_enemy() -> void:
+func _spawn_enemy(boss_kind := "") -> Player:
 	# Difficulty ramps with the wave number; elite waves are all veterans+.
 	var level := clampi((wave - 1) / 4 + (randi() % 2 if wave > 4 else 0), 0, 3)
 	if wave % 5 == 0:
@@ -419,16 +432,41 @@ func _spawn_enemy() -> void:
 		_player_root.add_child(p)
 		p.died.connect(_on_player_died)
 		players.append(p)
-	p.controller = BotController.new(level)
+	if boss_kind != "":
+		level = 3 if boss_kind != "brute" else 2
+	var brain = BotController.new(level)
+	p.controller = brain
 	p.retired = false
+	p.visual_scale = 1.0
 	p.respawn(_pick_spawn(p))
 	p.shield = 0.4
-	if randf() < clampf(0.1 * (wave - 2), 0.0, 0.8):
+	p.make_boss(boss_kind)
+	if boss_kind != "":
+		p.global_position.y -= 29.0 * (p.visual_scale - 1.0) + 4.0
+		p.shield = 1.5
+		if boss_kind == "spectre":
+			brain.cfg = brain.cfg.duplicate()
+			brain.cfg["reaction"] = 0.9   # the laser lingers before the shot: dodge it!
+			brain.cfg["noise"] = 0.015
+	elif randf() < clampf(0.1 * (wave - 2), 0.0, 0.8):
 		p.give_weapon(WeaponData.random_pickup_id())
+	return p
 
 func _survival_death(victim: Player, k: Player, headshot: bool) -> void:
 	if not victim.is_human:
 		victim.retired = true
+		if victim == boss:
+			boss = null
+			_hud.announce("BOSS VAINCU !", UITheme.ACCENT, "+1 vie pour chacun", 2.5)
+			SoundManager.play("hallelujah", Vector2.INF, 0.0, 1.2)
+			_slowmo = 0.9
+			Engine.time_scale = 0.3
+			for h in players:
+				if h.is_human and h.lives >= 0:
+					h.lives += 1
+					if h.retired:
+						h.retired = false
+						h.respawn(_pick_spawn(h))
 		if k and k.is_human:
 			k.kills += 1
 			k.streak += 1

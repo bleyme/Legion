@@ -201,6 +201,14 @@ func _draw_timer(world: Node, vs: Vector2) -> void:
 		if world.wave_break > 0.0 and world.wave > 0:
 			sub = "Prochaine vague dans %d" % int(ceil(world.wave_break))
 		_text(Vector2(cx - 110, 52), sub, 12, UITheme.DIM, HORIZONTAL_ALIGNMENT_CENTER, 220, 0)
+		var b: Player = world.boss
+		if b and not b.dead:
+			var w := minf(560.0, vs.x - 80.0)
+			var bar := Rect2(cx - w * 0.5, 70, w, 14)
+			_text(Vector2(cx - w * 0.5, 66), b.boss_title, 15, b.color.lightened(0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			draw_rect(bar.grow(2), Color(0, 0, 0, 0.75))
+			draw_rect(Rect2(bar.position, Vector2(w * clampf(b.health / b.max_health, 0.0, 1.0), 14)), Color(0.85, 0.15, 0.12))
+			draw_rect(Rect2(bar.position, Vector2(w * clampf(b.health / b.max_health, 0.0, 1.0), 4)), Color(1.0, 0.45, 0.35))
 		return
 	var text := "∞"
 	if world.time_left >= 0.0:
