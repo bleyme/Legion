@@ -14,10 +14,12 @@ const PRESETS := [
 const RANK := {
 	"pistol": 0, "smg": 2, "rifle": 3, "shotgun": 3, "grenade_launcher": 3,
 	"sniper": 3, "minigun": 4, "railgun": 4, "rocket": 5,
+	"sheep": 3, "banana": 4, "holy": 5, "airstrike": 4,
 }
 const PREFERRED_RANGE := {
 	"pistol": 380.0, "smg": 300.0, "rifle": 460.0, "shotgun": 170.0, "sniper": 800.0,
 	"minigun": 360.0, "rocket": 480.0, "grenade_launcher": 420.0, "railgun": 700.0,
+	"sheep": 450.0, "banana": 380.0, "holy": 420.0, "airstrike": 450.0,
 }
 
 var level := 1
@@ -375,6 +377,11 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 			in_range = dist < 480.0
 		if (def["kind"] == "rocket" or def["kind"] == "grenade") and dist < 110.0:
 			in_range = false
+		if def["id"] == "holy" and dist < 260.0:
+			in_range = false   # don't hug your own holy grenade
+		if def["kind"] == "sheep":
+			in_range = dist < 750.0 and absf(target.global_position.y - p.global_position.y) < 70.0 and p.is_on_floor()
+			desired = Vector2(signf(tp.x - origin.x), 0.2).angle()
 		have_shot = in_range and seen_time >= float(cfg["reaction"])
 		# Grenade at a close enemy.
 		nade_cd -= dt

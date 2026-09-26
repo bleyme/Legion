@@ -349,10 +349,12 @@ func _draw_death(p: Player, vs: Vector2, human_count: int) -> void:
 	elif p.lives >= 0:
 		t += " · %d vie%s" % [p.lives, "s" if p.lives > 1 else ""]
 	if human_count == 1:
-		draw_rect(Rect2(0, vs.y * 0.55 - 36, vs.x, 70), Color(0, 0, 0, 0.45))
+		draw_rect(Rect2(0, vs.y * 0.55 - 36, vs.x, 96), Color(0, 0, 0, 0.45))
 		var who := "ÉLIMINÉ" if p.killed_by == "" else "ÉLIMINÉ PAR %s" % p.killed_by
 		_text(Vector2(0, vs.y * 0.55), who, 28, Color(1.0, 0.35, 0.3), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 5)
 		_text(Vector2(0, vs.y * 0.55 + 26), t, 16, UITheme.TEXT, HORIZONTAL_ALIGNMENT_CENTER, vs.x, 3)
+		if p.death_quip != "":
+			_text(Vector2(0, vs.y * 0.55 + 50), p.death_quip, 15, Color(1.0, 0.8, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vs.x, 3)
 	else:
 		var sp := get_viewport().get_canvas_transform() * p.global_position
 		_text(sp + Vector2(-100, -20), t, 14, p.color.lightened(0.3), HORIZONTAL_ALIGNMENT_CENTER, 200, 3)

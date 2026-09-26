@@ -80,6 +80,17 @@ Les armes principales se ramassent sur la carte ; celles des joueurs tués reste
 | Lance-roquettes | explosion de zone, rocket-jump |
 | Lance-grenades | projectiles rebondissants, explosent au contact |
 
+Et l'arsenal absurde, rare et redoutable :
+
+| Arme | Rôle |
+|---|---|
+| Mouton kamikaze | trotte vers l'ennemi, saute les obstacles, explose au contact |
+| Banane à fragmentation | explose en six mini-bananes explosives |
+| Sainte grenade | chœur céleste, puis rayon d'explosion énorme |
+| Frappe aérienne | une balise, puis six missiles tombent du ciel |
+
+Les explosions démembrent, les autres morts envoient le corps en ragdoll.
+
 **Arsenal** : en plus du mode complet, des parties à arme unique — Roquettes,
 Railgun instagib (un tir = un frag), Fusils à pompe ou Snipers.
 

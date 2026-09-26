@@ -19,6 +19,10 @@ static func draw_weapon(ci: CanvasItem, id: String) -> void:
 		"rocket":           _rocket(ci)
 		"grenade_launcher": _launcher(ci)
 		"railgun":          _railgun(ci)
+		"sheep":            _sheep(ci)
+		"banana":           _banana(ci)
+		"holy":             _holy(ci)
+		"airstrike":        _radio(ci)
 		_:                  _rifle(ci)
 
 ## Colour used for pickups/HUD accents of each weapon.
@@ -33,6 +37,10 @@ static func accent(id: String) -> Color:
 		"rocket":           return Color(1.0, 0.3, 0.3)
 		"grenade_launcher": return Color(0.5, 1.0, 0.35)
 		"railgun":          return Color(0.8, 0.45, 1.0)
+		"sheep":            return Color(1.0, 1.0, 0.95)
+		"banana":           return Color(1.0, 0.9, 0.2)
+		"holy":             return Color(1.0, 0.85, 0.35)
+		"airstrike":        return Color(1.0, 0.3, 0.25)
 	return Color.WHITE
 
 static func _pistol(ci: CanvasItem) -> void:
@@ -121,3 +129,23 @@ static func _railgun(ci: CanvasItem) -> void:
 	ci.draw_rect(Rect2(18, -2, 24, 4), Color(0.7, 0.35, 1.0, 0.9))
 	for i in 3:
 		ci.draw_rect(Rect2(22 + i * 7, -6, 3, 12), STEEL)
+
+static func _sheep(ci: CanvasItem) -> void:
+	for o in [Vector2(10, 0), Vector2(16, -3), Vector2(22, 0), Vector2(16, 3)]:
+		ci.draw_circle(o, 5.5, Color(0.95, 0.95, 0.92))
+	ci.draw_circle(Vector2(27, -2), 4.0, Color(0.12, 0.12, 0.12))
+	ci.draw_rect(Rect2(12, -9, 7, 4), Color(0.8, 0.15, 0.15))
+
+static func _banana(ci: CanvasItem) -> void:
+	ci.draw_arc(Vector2(16, 6), 9.0, PI + 0.4, TAU - 0.3, 10, Color(1.0, 0.85, 0.15), 5.0)
+	ci.draw_circle(Vector2(8, 3), 1.6, Color(0.3, 0.2, 0.05))
+
+static func _holy(ci: CanvasItem) -> void:
+	ci.draw_circle(Vector2(14, 0), 7.0, Color(1.0, 0.82, 0.25))
+	ci.draw_rect(Rect2(13, -13, 2, 8), Color(1.0, 0.95, 0.6))
+	ci.draw_rect(Rect2(10, -11, 8, 2), Color(1.0, 0.95, 0.6))
+
+static func _radio(ci: CanvasItem) -> void:
+	ci.draw_rect(Rect2(6, -6, 12, 14), Color(0.25, 0.28, 0.2))
+	ci.draw_rect(Rect2(8, -3, 8, 4), Color(0.9, 0.2, 0.15))
+	ci.draw_line(Vector2(16, -6), Vector2(20, -16), DARK, 1.5)

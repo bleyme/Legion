@@ -69,6 +69,40 @@ var _db := {
 		"recoil": 200.0, "shake": 0.3, "kick": 9.0, "muzzle": 42.0, "sound": "rail",
 		"head_mult": 1.5, "weight": 4, "tracer": Color(0.8, 0.4, 1.0), "pierce": true,
 	},
+	# ---- The absurd arsenal -------------------------------------------------
+	"sheep": {
+		"name": "Mouton kamikaze", "kind": "sheep", "damage": 130.0, "fire_rate": 1.2,
+		"mag": 1, "reserve": 2, "speed": 250.0, "reload": 1.5, "splash": 150.0, "fuse": 7.0,
+		"gravity": 1400.0, "recoil": 0.0, "shake": 0.1, "kick": 4.0, "muzzle": 30.0,
+		"sound": "baa", "weight": 3, "range": 3000.0, "contact": false,
+	},
+	"banana": {
+		"name": "Banane à fragmentation", "kind": "grenade", "damage": 70.0, "fire_rate": 1.0,
+		"mag": 1, "reserve": 2, "speed": 700.0, "reload": 1.4, "splash": 95.0, "fuse": 2.0,
+		"gravity": 1300.0, "sound": "throw", "weight": 3, "range": 3000.0, "contact": false,
+		"cluster": 6, "muzzle": 26.0,
+	},
+	"banana_bit": {
+		"name": "Banane à fragmentation", "kind": "grenade", "damage": 55.0, "speed": 0.0,
+		"splash": 75.0, "fuse": 1.4, "gravity": 1300.0, "contact": true, "fire_rate": 1.0,
+		"mag": 1, "reserve": 0, "reload": 0.0,
+	},
+	"holy": {
+		"name": "Sainte grenade", "kind": "grenade", "damage": 170.0, "fire_rate": 1.0,
+		"mag": 1, "reserve": 0, "speed": 620.0, "reload": 1.0, "splash": 240.0, "fuse": 3.0,
+		"gravity": 1300.0, "sound": "throw", "weight": 2, "range": 3000.0, "contact": false,
+		"holy": true, "muzzle": 26.0,
+	},
+	"airstrike": {
+		"name": "Frappe aérienne", "kind": "grenade", "damage": 0.0, "fire_rate": 1.5,
+		"mag": 1, "reserve": 1, "speed": 650.0, "reload": 1.0, "splash": 0.0, "fuse": 1.1,
+		"gravity": 1300.0, "sound": "throw", "weight": 3, "range": 3000.0, "contact": false,
+		"airstrike": 6, "muzzle": 26.0,
+	},
+	"strike_missile": {
+		"name": "Frappe aérienne", "kind": "rocket", "damage": 75.0, "speed": 950.0,
+		"splash": 95.0, "fire_rate": 1.0, "mag": 1, "reserve": 0, "reload": 0.0,
+	},
 	# Thrown frag grenade (not a carried weapon, used by the grenade key).
 	"frag": {
 		"name": "Grenade", "kind": "grenade", "damage": 100.0, "speed": 720.0,

@@ -103,6 +103,7 @@ var retired := false     # out of the match (survival), never respawns
 var hurt_dir := Vector2.ZERO    # toward the last attacker, for the HUD indicator
 var hurt_dir_time := 0.0
 var killed_by := ""
+var death_quip := ""
 
 # weapons
 var primary := {}                                        # {id, mag, reserve}
@@ -687,7 +688,13 @@ func die(killer: Node, weapon_id: String, headshot: bool, push := Vector2.ZERO) 
 	body.visible = false
 	gun_pivot.visible = false
 	shape_node.set_deferred("disabled", true)
-	Game.fx.gibs(global_position, color, velocity + push)
+	# Explosions (and huge hits) tear soldiers apart; everything else ragdolls.
+	var kind: String = WeaponData.get_def(weapon_id)["kind"] if weapon_id != "" else ""
+	var brutal := push.length() > 420.0 or kind in ["rocket", "grenade", "sheep"]
+	Game.fx.blood(global_position, (velocity + push).normalized(), 20 if brutal else 10)
+	Game.fx.corpse(global_position, velocity + push, color, facing, brutal)
+	if brutal:
+		SoundManager.play("gore", global_position, -2.0)
 	SoundManager.play("death", global_position, 0.0)
 	if not primary.is_empty() and (int(primary["mag"]) > 0 or int(primary["reserve"]) > 0):
 		Game.world.drop_weapon(primary, global_position, velocity * 0.4 + Vector2(randf_range(-80, 80), -260))

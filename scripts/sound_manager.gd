@@ -164,6 +164,24 @@ func _build_library() -> void:
 		{"tone": 1600.0, "tone1": 1200.0, "amp": 0.3, "decay": 7.0, "wave": "square"},
 		{"noise": 0.5, "lp0": 5000.0, "lp1": 1500.0, "decay": 8.0},
 	])
+	_streams["gore"] = _mix(0.3, [
+		{"noise": 0.9, "lp0": 1400.0, "lp1": 250.0, "decay": 3.0},
+		{"tone": 120.0, "tone1": 60.0, "amp": 0.5, "decay": 4.0},
+	])
+	_streams["baa"] = _mix(0.42, [
+		{"tone": 420.0, "tone1": 360.0, "amp": 0.35, "decay": 1.2, "wave": "saw", "attack": 0.1, "vibrato": 28.0},
+		{"tone": 840.0, "tone1": 720.0, "amp": 0.12, "decay": 1.5, "wave": "saw", "attack": 0.1, "vibrato": 28.0},
+		{"noise": 0.15, "lp0": 3000.0, "lp1": 1500.0, "decay": 2.0},
+	])
+	_streams["hallelujah"] = _mix(1.3, [
+		{"tone": 440.0, "tone1": 440.0, "amp": 0.22, "decay": 0.6, "wave": "saw", "attack": 0.15, "vibrato": 6.0},
+		{"tone": 554.0, "tone1": 554.0, "amp": 0.18, "decay": 0.6, "wave": "saw", "attack": 0.15, "vibrato": 6.0},
+		{"tone": 659.0, "tone1": 659.0, "amp": 0.18, "decay": 0.6, "wave": "saw", "attack": 0.15, "vibrato": 6.0},
+		{"tone": 880.0, "tone1": 880.0, "amp": 0.12, "decay": 0.6, "wave": "sine", "attack": 0.15, "vibrato": 6.0},
+	])
+	_streams["siren"] = _mix(1.0, [
+		{"tone": 500.0, "tone1": 900.0, "amp": 0.25, "decay": 0.4, "wave": "saw", "attack": 0.05},
+	])
 	_streams["step"]     = _mix(0.06, [
 		{"noise": 0.5, "lp0": 1200.0, "lp1": 300.0, "decay": 7.0},
 	])
@@ -231,6 +249,7 @@ func _render(buf: PackedFloat32Array, l: Dictionary) -> void:
 	var lp0: float = l.get("lp0", 8000.0)
 	var lp1: float = l.get("lp1", lp0)
 	var wave: String = l.get("wave", "sine")
+	var vibrato: float = l.get("vibrato", 0.0)
 	var phase := 0.0
 	var lp := 0.0
 	for i in count:
@@ -245,7 +264,8 @@ func _render(buf: PackedFloat32Array, l: Dictionary) -> void:
 			lp += a * (randf() * 2.0 - 1.0 - lp)
 			s += lp * noise_amp * 1.6
 		if tone_amp > 0.0:
-			phase += lerpf(f0, f1, t) / RATE
+			var vib := sin(TAU * vibrato * float(i) / RATE) * 0.03 if vibrato > 0.0 else 0.0
+			phase += lerpf(f0, f1, t) * (1.0 + vib) / RATE
 			var p := fmod(phase, 1.0)
 			match wave:
 				"square": s += (1.0 if p < 0.5 else -1.0) * tone_amp * 0.5

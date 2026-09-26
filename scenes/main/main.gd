@@ -302,6 +302,7 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 	victim.killed_by = ""
 	var k := killer as Player
 	_last_weapon = weapon_id
+	victim.death_quip = _quip(victim, k, weapon_id)
 	_hud.add_kill(killer, victim, weapon_id, headshot)
 	if match_over:
 		return
@@ -446,6 +447,33 @@ func _survival_death(victim: Player, k: Player, headshot: bool) -> void:
 		_hud.announce("%s EST TOMBÉ" % victim.display_name, Color(1.0, 0.35, 0.3), "", 1.6)
 	if players.all(func(p): return not p.is_human or p.retired):
 		_end_match()
+
+const QUIPS := {
+	"sheep": ["Tué par un mouton. Personne ne doit le savoir.", "Bêêêê.", "Le mouton était plus malin que toi."],
+	"holy": ["Alléluia.", "Tu as vu la lumière. De très près.", "Béni soit ton cadavre."],
+	"banana": ["Glissé sur une banane. En morceaux.", "Cinq fruits et légumes par jour, qu'ils disaient."],
+	"airstrike": ["Regarde en l'air, parfois.", "Livraison express par la voie des airs."],
+	"rocket": ["Vol plané, atterrissage en pièces détachées.", "Un aller simple pour la stratosphère."],
+	"grenade_launcher": ["Ça rebondit, ça explose, ça fait mal.", "Il fallait compter les rebonds."],
+	"frag": ["Tu l'as entendue rouler ?", "Ramasser les grenades n'est pas une stratégie."],
+	"sniper": ["Tu ne l'as même pas vu.", "Un point rouge, puis plus rien."],
+	"railgun": ["Transpercé comme une brochette.", "Physique avancée : 1, toi : 0."],
+	"shotgun": ["À bout portant. Très bout.", "Dégâts dispersés, toi aussi."],
+	"minigun": ["Sept cents balles par minute. Toutes pour toi.", "Tu as été haché menu."],
+	"_self": ["Bravo. Vraiment bravo.", "Ton pire ennemi, c'est toi.", "Le sol a gagné."],
+	"_": ["Relève-toi, soldat.", "Même pas mal. Enfin si.", "La Légion n'oublie pas.", "Encore une."],
+}
+
+func _quip(victim: Player, k: Player, weapon_id: String) -> String:
+	if not victim.is_human:
+		return ""
+	var alias := {"banana_bit": "banana", "strike_missile": "airstrike"}
+	weapon_id = alias.get(weapon_id, weapon_id)
+	var key := weapon_id if QUIPS.has(weapon_id) else "_"
+	if k == null or k == victim:
+		key = "_self"
+	var list: Array = QUIPS[key]
+	return list[randi() % list.size()]
 
 func _announce_kill(k: Player, victim: Player, headshot: bool) -> void:
 	if _demo:

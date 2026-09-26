@@ -33,7 +33,8 @@ func fire(shooter: Node, origin: Vector2, dir: Vector2, def: Dictionary, inherit
 			var p := {
 				"kind": def["kind"], "pos": origin, "prev": origin, "vel": dir * speed + inherit,
 				"def": def, "shooter": shooter, "life": 0.0, "traveled": 0.0,
-				"fuse": def["fuse"], "bounces": 0,
+				"fuse": def["fuse"], "bounces": 0, "dir": signf(dir.x) if dir.x != 0.0 else 1.0,
+				"grounded": false, "hops": 0, "sang": false,
 			}
 			_list.append(p)
 
@@ -79,6 +80,7 @@ func _physics_process(delta: float) -> void:
 			"bullet":  alive = _step_bullet(p, delta, space)
 			"rocket":  alive = _step_rocket(p, delta, space)
 			"grenade": alive = _step_grenade(p, delta, space)
+			"sheep":   alive = _step_sheep(p, delta, space)
 		if alive:
 			i += 1
 		else:
@@ -149,10 +151,62 @@ func _step_rocket(p: Dictionary, dt: float, space: PhysicsDirectSpaceState2D) ->
 		return false
 	return true
 
+## Kamikaze sheep: trots along the ground, hops over walls, turns around when
+## stuck, and blows up next to the first enemy it meets.
+func _step_sheep(p: Dictionary, dt: float, space: PhysicsDirectSpaceState2D) -> bool:
+	var def: Dictionary = p["def"]
+	p["life"] += dt
+	p["fuse"] -= dt
+	var pos: Vector2 = p["pos"]
+	for pl in Game.active_players():
+		if not pl.dead and pl != p["shooter"] and pos.distance_to(pl.global_position) < 38.0 \
+				and (not is_instance_valid(p["shooter"]) or Game.is_enemy(p["shooter"], pl)):
+			explode(pos, def, p["shooter"])
+			return false
+	if p["fuse"] <= 0.0:
+		explode(pos, def, p["shooter"])
+		return false
+	var v: Vector2 = p["vel"]
+	if p["grounded"]:
+		v.x = float(p["dir"]) * float(def["speed"])
+		v.y = 0.0
+		var down := PhysicsRayQueryParameters2D.create(pos, pos + Vector2(0, 12), WORLD | PLATFORM)
+		if space.intersect_ray(down).is_empty():
+			p["grounded"] = false
+	v.y = minf(v.y + float(def["gravity"]) * dt, 1100.0)
+	var to := pos + v * dt
+	var q := PhysicsRayQueryParameters2D.create(pos, to, WORLD | (PLATFORM if v.y > 0.0 else 0))
+	var r := space.intersect_ray(q)
+	if not r.is_empty():
+		var n: Vector2 = r["normal"]
+		if n.y < -0.6:
+			p["grounded"] = true
+			v.y = 0.0
+			p["pos"] = r["position"] + n * 6.0
+			p["hops"] = 0
+		else:
+			p["hops"] += 1
+			if p["hops"] > 2:
+				p["dir"] = -float(p["dir"])
+				p["hops"] = 0
+			v = Vector2(-float(p["dir"]) * 30.0, -520.0)
+			p["grounded"] = false
+			p["pos"] = r["position"] + n * 4.0
+			SoundManager.play("baa", pos, -6.0, randf_range(0.9, 1.3))
+	else:
+		p["pos"] = to
+	p["vel"] = v
+	if randf() < 0.01:
+		SoundManager.play("baa", pos, -8.0, randf_range(0.8, 1.2))
+	return true
+
 func _step_grenade(p: Dictionary, dt: float, space: PhysicsDirectSpaceState2D) -> bool:
 	var def: Dictionary = p["def"]
 	p["life"] += dt
 	p["fuse"] -= dt
+	if def.get("holy", false) and p["fuse"] < 1.1 and not p["sang"]:
+		p["sang"] = true
+		SoundManager.play("hallelujah", p["pos"], 2.0)
 	if p["fuse"] <= 0.0:
 		explode(p["pos"], def, p["shooter"])
 		return false
@@ -202,6 +256,20 @@ func _damage_player(target: Player, at: Vector2, dir: Vector2, def: Dictionary, 
 	target.take_damage(dmg, dir * float(def["knock"]), shooter, def["id"], head, at)
 
 func explode(pos: Vector2, def: Dictionary, shooter: Node) -> void:
+	if def.has("cluster"):
+		var bit := WeaponData.get_def("banana_bit")
+		for i in int(def["cluster"]):
+			var d := Vector2.from_angle(randf_range(-PI * 0.85, -PI * 0.15))
+			var b := {
+				"kind": "grenade", "pos": pos + Vector2(0, -6), "prev": pos, "vel": d * randf_range(380, 640),
+				"def": bit, "shooter": shooter, "life": 0.0, "traveled": 0.0,
+				"fuse": float(bit["fuse"]) + randf() * 0.5, "bounces": 0, "dir": 1.0,
+				"grounded": false, "hops": 0, "sang": false,
+			}
+			_list.append(b)
+	if def.has("airstrike"):
+		_airstrike(pos, int(def["airstrike"]), shooter)
+		return
 	var radius: float = def["splash"]
 	Game.fx.explosion(pos, radius)
 	SoundManager.play("explosion", pos, 2.0)
@@ -234,6 +302,22 @@ func explode(pos: Vector2, def: Dictionary, shooter: Node) -> void:
 			push *= 1.25   # rocket jumping!
 		pl.take_damage(dmg, push, shooter, def["id"], false, center)
 
+func _airstrike(target: Vector2, count: int, shooter: Node) -> void:
+	Game.fx.impact(target, Vector2.UP, Color(1.0, 0.2, 0.2))
+	SoundManager.play("siren", target, 0.0)
+	if Game.hud:
+		Game.hud.announce("FRAPPE AÉRIENNE", Color(1.0, 0.35, 0.25), "", 1.0)
+	var missile := WeaponData.get_def("strike_missile")
+	for i in count:
+		var x := target.x + (i - (count - 1) * 0.5) * 70.0 + randf_range(-15, 15)
+		var start := Vector2(x - 180.0, -60.0 - i * 90.0)
+		var dir := (Vector2(x, target.y) - start).normalized()
+		_list.append({
+			"kind": "rocket", "pos": start, "prev": start, "vel": dir * float(missile["speed"]),
+			"def": missile, "shooter": shooter, "life": -0.4 - i * 0.12, "traveled": 0.0,
+			"fuse": 0.0, "bounces": 0, "dir": 1.0, "grounded": false, "hops": 0, "sang": false,
+		})
+
 # --------------------------------------------------------------------------
 # Rendering
 # --------------------------------------------------------------------------
@@ -249,7 +333,36 @@ func _draw() -> void:
 				draw_colored_polygon(PackedVector2Array([Vector2(4, -3), Vector2(10, 0), Vector2(4, 3)]), Color(0.8, 0.2, 0.15))
 				draw_rect(Rect2(-14, -5, 4, 10), Color(0.2, 0.22, 0.2))
 				draw_set_transform(Vector2.ZERO, 0.0)
+			"sheep":
+				var f := float(p["dir"])
+				var bob := sin(p["life"] * 22.0) * 1.5 if p["grounded"] else 0.0
+				draw_set_transform(pos + Vector2(0, bob), 0.0, Vector2(f, 1))
+				for o in [Vector2(-6, 0), Vector2(0, -3), Vector2(6, 0), Vector2(0, 3), Vector2(-3, -4), Vector2(3, -4)]:
+					draw_circle(o, 6.5, Color(0.95, 0.95, 0.92))
+				draw_circle(Vector2(10, -3), 4.5, Color(0.12, 0.12, 0.12))
+				draw_circle(Vector2(11.5, -4.5), 1.2, Color(1, 1, 1))
+				var leg := sin(p["life"] * 22.0) * 3.0
+				draw_line(Vector2(-5, 5), Vector2(-5 + leg, 11), Color(0.1, 0.1, 0.1), 2.0)
+				draw_line(Vector2(5, 5), Vector2(5 - leg, 11), Color(0.1, 0.1, 0.1), 2.0)
+				draw_rect(Rect2(-4, -9, 8, 4), Color(0.8, 0.15, 0.15))   # dynamite
+				draw_set_transform(Vector2.ZERO)
 			"grenade":
+				var gid: String = p["def"]["id"]
+				if gid == "banana" or gid == "banana_bit":
+					var sc := 1.0 if gid == "banana" else 0.6
+					draw_set_transform(pos, p["life"] * 9.0, Vector2(sc, sc))
+					draw_arc(Vector2.ZERO, 8.0, 0.3, 2.8, 10, Color(1.0, 0.85, 0.15), 5.0)
+					draw_circle(Vector2(8, 3).rotated(0.0), 1.5, Color(0.3, 0.2, 0.05))
+					draw_set_transform(Vector2.ZERO)
+					continue
+				if gid == "holy":
+					draw_circle(pos, 7.0, Color(1.0, 0.82, 0.25))
+					draw_rect(Rect2(pos + Vector2(-1, -12), Vector2(2, 7)), Color(1.0, 0.95, 0.6))
+					draw_rect(Rect2(pos + Vector2(-3, -10), Vector2(6, 2)), Color(1.0, 0.95, 0.6))
+					continue
+				if gid == "airstrike":
+					draw_rect(Rect2(pos + Vector2(-3, -6), Vector2(6, 12)), Color(0.8, 0.1, 0.1))
+					continue
 				var frag: bool = p["def"]["id"] == "frag"
 				draw_circle(pos, 5.0 if frag else 4.5, Color(0.22, 0.28, 0.16) if frag else Color(0.25, 0.25, 0.28))
 				draw_circle(pos + Vector2(-1.5, -1.5), 1.8, Color(0.45, 0.5, 0.35))
@@ -272,6 +385,11 @@ func _draw_glow() -> void:
 				_glow.draw_circle(pos - dir * 14.0, 9.0, Color(1.0, 0.6, 0.2, 0.7))
 				_glow.draw_circle(pos - dir * 14.0, 4.0, Color(1.0, 1.0, 0.8, 1.0))
 			"grenade":
+				if p["def"]["id"] == "holy":
+					_glow.draw_circle(pos, 16.0 + sin(p["life"] * 10.0) * 4.0, Color(1.0, 0.9, 0.4, 0.35))
+				if p["def"]["id"] == "airstrike":
+					_glow.draw_circle(pos, 10.0, Color(1.0, 0.1, 0.1, 0.6 + 0.4 * sin(p["life"] * 30.0)))
+					continue
 				var blink: bool = fmod(p["fuse"], 0.3) < 0.15 or p["fuse"] < 0.5
 				if blink:
 					_glow.draw_circle(pos, 7.0, Color(1.0, 0.2, 0.1, 0.6))

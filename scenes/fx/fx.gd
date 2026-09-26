@@ -107,6 +107,8 @@ var _glow_node: Node2D
 var _texts: Array = []   # [pos, vel, text, color, life, max, size]
 var _beams: Array = []   # [from, to, color, width, life, max]
 var _font: Font
+var _corpses: Array = []   # ragdoll pieces: {pos, vel, rot, spin, col, part, life}
+const MAX_CORPSES := 60
 
 func _ready() -> void:
 	z_index = 5
@@ -131,6 +133,7 @@ func _process(delta: float) -> void:
 		t[0] += t[1] * delta
 		t[1] *= 0.9
 		i += 1
+	_update_corpses(delta)
 	i = 0
 	while i < _beams.size():
 		_beams[i][4] -= delta
@@ -142,6 +145,7 @@ func _process(delta: float) -> void:
 	_glow_node.queue_redraw()
 
 func _draw() -> void:
+	_draw_corpses()
 	normal.draw(self, Game.soft_tex)
 	for t in _texts:
 		var a: float = clampf(t[4] / t[5] * 2.0, 0.0, 1.0)
@@ -204,6 +208,85 @@ func gibs(p: Vector2, team: Color, vel: Vector2) -> void:
 		var c := team.darkened(randf_range(0.1, 0.5)) if i % 2 == 0 else Color(0.55, 0.08, 0.08)
 		normal.emit(p, d, randf_range(1.2, 2.2), randf_range(4.0, 7.0), 3.0, c, 1000, 0.3, SQUARE, 1)
 	glow.emit(p, Vector2.ZERO, 0.2, 30.0, 50.0, Color(1.0, 0.3, 0.2, 0.4), 0, 0, FLASH)
+
+# --------------------------------------------------------------------------
+# Ragdolls: a whole body, or the pieces of one when an explosion gets you
+# --------------------------------------------------------------------------
+
+func corpse(p: Vector2, vel: Vector2, team: Color, facing: float, dismember: bool) -> void:
+	var armour := team.darkened(0.35).lerp(Color(0.25, 0.3, 0.2), 0.35)
+	if not dismember:
+		_add_piece(p, vel + Vector2(0, -120), armour, "body", facing, randf_range(-4, 4))
+		return
+	var parts := [["head", team.darkened(0.15), Vector2(0, -22)], ["torso", armour, Vector2.ZERO],
+		["arm", armour.darkened(0.2), Vector2(-8, -6)], ["arm", armour.darkened(0.2), Vector2(8, -6)],
+		["leg", armour.darkened(0.4), Vector2(-4, 16)], ["leg", armour.darkened(0.4), Vector2(4, 16)]]
+	for part in parts:
+		var burst := Vector2.from_angle(randf() * TAU) * randf_range(150, 420) + Vector2(0, -250)
+		_add_piece(p + part[2], vel * 0.7 + burst, part[1], part[0], facing, randf_range(-14, 14))
+
+func _add_piece(p: Vector2, v: Vector2, c: Color, part: String, facing: float, spin: float) -> void:
+	_corpses.append({"pos": p, "vel": v, "rot": 0.0, "spin": spin, "col": c, "part": part,
+		"life": 6.0, "facing": facing})
+	if _corpses.size() > MAX_CORPSES:
+		_corpses.pop_front()
+
+func _update_corpses(dt: float) -> void:
+	var i := 0
+	while i < _corpses.size():
+		var c: Dictionary = _corpses[i]
+		c["life"] -= dt
+		if c["life"] <= 0.0:
+			_corpses.remove_at(i)
+			continue
+		var v: Vector2 = c["vel"]
+		v.y = minf(v.y + 1500.0 * dt, 1100.0)
+		var np: Vector2 = c["pos"] + v * dt
+		if Game.arena and Game.arena.is_solid(np):
+			if Game.arena.is_solid(Vector2(np.x, c["pos"].y)):
+				v.x = -v.x * 0.35
+			else:
+				if v.y > 300.0 and c["part"] != "body":
+					blood(c["pos"], Vector2.UP, 3)
+				v.y = -v.y * 0.25
+				v.x *= 0.55
+				c["spin"] *= 0.5
+			np = c["pos"]
+		elif v.length() > 250.0 and c["part"] != "body" and randf() < 0.5:
+			normal.emit(np, v * 0.1, 0.8, 2.5, 1.5, Color(0.7, 0.05, 0.05), 900, 0.3, SQUARE, 2)
+		c["vel"] = v
+		c["pos"] = np
+		c["rot"] += c["spin"] * dt
+		i += 1
+
+func _draw_corpses() -> void:
+	for c in _corpses:
+		var a := clampf(c["life"], 0.0, 1.0)
+		var col: Color = c["col"]
+		col.a = a
+		var skin := Color(0.78, 0.58, 0.42, a)
+		draw_set_transform(c["pos"], c["rot"], Vector2(c["facing"], 1))
+		match c["part"]:
+			"body":
+				draw_rect(Rect2(-9, -13, 18, 22), col)
+				draw_circle(Vector2(1, -21), 7.5, skin)
+				draw_circle(Vector2(0, -24), 8.0, col.lightened(0.15))
+				draw_rect(Rect2(-6, 9, 5, 18), col.darkened(0.3))
+				draw_rect(Rect2(2, 9, 5, 18), col.darkened(0.3))
+			"head":
+				draw_circle(Vector2.ZERO, 7.5, skin)
+				draw_circle(Vector2(-1, -3), 8.0, col)
+				draw_rect(Rect2(1, -1, 6, 3), Color(0.1, 0.14, 0.2, a))
+			"torso":
+				draw_rect(Rect2(-9, -11, 18, 20), col)
+				draw_rect(Rect2(-9, 7, 18, 4), Color(0.5, 0.05, 0.05, a))
+			"arm":
+				draw_rect(Rect2(-2.5, -8, 5, 16), col)
+				draw_circle(Vector2(0, 8), 3.0, skin)
+			"leg":
+				draw_rect(Rect2(-3, -9, 6, 16), col)
+				draw_rect(Rect2(-3, 7, 8, 4), Color(0.09, 0.07, 0.05, a))
+	draw_set_transform(Vector2.ZERO)
 
 func explosion(p: Vector2, radius: float) -> void:
 	glow.emit(p, Vector2.ZERO, 0.12, radius * 0.7, radius * 0.3, Color(1.0, 0.95, 0.8, 0.9), 0, 0, FLASH)
