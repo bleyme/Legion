@@ -137,7 +137,8 @@ func _ready() -> void:
 	add_to_group("players")
 	collision_layer = 2
 	collision_mask = 1 | 4
-	floor_snap_length = 6.0
+	floor_snap_length = 10.0
+	floor_max_angle = deg_to_rad(58.0)   # crater slopes stay walkable
 	shape_node.shape = shape_node.shape.duplicate()   # crouching resizes it per player
 	_font = ThemeDB.fallback_font
 	_refresh_gun()
@@ -316,6 +317,7 @@ func _move(delta: float) -> void:
 
 	fall_speed = velocity.y
 	move_and_slide()
+	_step_up()
 	if is_on_wall() and not is_on_floor():
 		wall_timer = 0.14
 		wall_normal = get_wall_normal()
@@ -391,6 +393,20 @@ func style(text: String) -> void:
 		return
 	style_cd = 0.6
 	Game.fx.popup(global_position + Vector2(0, -60), text, Color(1.0, 0.8, 0.25), 14)
+
+## Climb small ledges (crater rims, rubble) instead of getting stuck on them.
+func _step_up() -> void:
+	if not is_on_floor() or not is_on_wall() or absf(input.move) < 0.1:
+		return
+	var dir := signf(input.move)
+	if signf(get_wall_normal().x) == dir:
+		return
+	for h in [6.0, 10.0, 14.0]:
+		var lifted := global_transform.translated(Vector2(0, -h))
+		if not test_move(global_transform, Vector2(0, -h)) and not test_move(lifted, Vector2(dir * 6.0, 0)):
+			global_position += Vector2(dir * 3.0, -h)
+			velocity.x = dir * maxf(absf(velocity.x), RUN_SPEED * 0.6)
+			return
 
 func _on_platform() -> bool:
 	if not Game.arena:

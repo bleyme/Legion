@@ -26,6 +26,11 @@ clavier seul (flèches), manette 1 à 4, ou un bot de niveau **Recrue**, **Solda
 
 ## Arènes
 
+**Tout se détruit** (façon Worms) : chaque explosion creuse un cratère dans les
+blocs, les toits de bunker et la croûte du sol ; seuls les murs extérieurs et
+le socle rocheux tiennent. Les soldats escaladent les petits rebords des
+cratères. Une arène ne ressemble jamais deux fois à la même.
+
 | Arène | Taille | Style |
 |---|---|---|
 | Avant-poste | grande | symétrique, bunkers, passerelles, roquettes au sommet |
@@ -103,6 +108,9 @@ qui disparaît dès qu'on tire.
 - `scripts/game.gd` : réglages de partie, touches, équipes, sauvegarde (`user://legion.cfg`).
 - `scripts/weapon_data.gd` : toutes les armes dans un seul tableau à équilibrer.
 - `scripts/maps.gd` : les arènes décrites par des rectangles (blocs, passerelles, spawns, objets).
+- `scenes/map/arena.gd` : terrain destructible — une image dont l'alpha fait la
+  matière, affichée par tuiles de 128 px et convertie en polygones de collision
+  par tuiles de 64 px ; un cratère ne reconstruit que les tuiles touchées (2 à 7 ms).
 - `scenes/player/` : le soldat (mouvement, armes, dégâts) et ses contrôleurs
   (clavier/souris, clavier seul, manette, bot).
 - `scenes/weapons/projectiles.gd` : chaque projectile balaie un rayon entre deux

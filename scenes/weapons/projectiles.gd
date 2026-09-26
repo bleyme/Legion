@@ -271,6 +271,8 @@ func explode(pos: Vector2, def: Dictionary, shooter: Node) -> void:
 		_airstrike(pos, int(def["airstrike"]), shooter)
 		return
 	var radius: float = def["splash"]
+	if Game.arena and Game.arena.has_method("carve"):
+		Game.arena.carve(pos, radius * 0.55)
 	Game.fx.explosion(pos, radius)
 	SoundManager.play("explosion", pos, 2.0)
 	Game.shake(0.55, pos)

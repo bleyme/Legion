@@ -310,6 +310,16 @@ func explosion(p: Vector2, radius: float) -> void:
 			if Game.arena.is_solid(q):
 				Game.arena.add_decal(q, randf_range(5.0, 11.0), Color(0.02, 0.02, 0.02, 0.35))
 
+## Chunks of terrain flung out of a fresh crater.
+func debris(p: Vector2, radius: float, col: Color) -> void:
+	for i in int(clampf(radius * 0.25, 6, 30)):
+		var d := Vector2.from_angle(randf_range(-PI, 0.0)) * randf_range(200, 650)
+		normal.emit(p + Vector2.from_angle(randf() * TAU) * radius * 0.5, d, randf_range(0.8, 1.8),
+			randf_range(3.0, 7.0), 2.0, col.lightened(randf_range(-0.2, 0.15)), 1300, 0.2, SQUARE, 1)
+	for i in 6:
+		normal.emit(p, Vector2.from_angle(randf() * TAU) * randf_range(20, 90), randf_range(1.0, 2.0),
+			radius * 0.3, radius * 0.7, Color(0.35, 0.33, 0.32, 0.4), -30, 1.0, SOFT)
+
 func rocket_trail(p: Vector2, dir: Vector2) -> void:
 	glow.emit(p, -dir * 60, 0.08, 6.0, 2.0, Color(1.0, 0.7, 0.3, 0.9), 0, 0, FLASH)
 	normal.emit(p, -dir * 40 + Vector2(randf_range(-15, 15), randf_range(-15, 15)), 0.8, 4.0, 14.0, Color(0.7, 0.7, 0.72, 0.35), -30, 1.2, SOFT)
