@@ -216,26 +216,27 @@ func _build_ui() -> void:
 	var opts := HBoxContainer.new()
 	opts.add_theme_constant_override("separation", 10)
 	right.add_child(opts)
-	opts.add_child(UITheme.label("VOLUME", 16, UITheme.ACCENT))
+	opts.add_child(UITheme.label("SON", 16, UITheme.ACCENT))
 	var vol := HSlider.new()
 	vol.min_value = 0.0
 	vol.max_value = 1.0
 	vol.step = 0.05
 	vol.value = Game.volume
 	vol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vol.custom_minimum_size = Vector2(120, 0)
 	vol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	vol.value_changed.connect(_on_volume)
 	opts.add_child(vol)
 	var shake := CheckButton.new()
 	shake.text = "Secousses"
 	shake.button_pressed = Game.screen_shake
-	shake.add_theme_font_size_override("font_size", 15)
+	shake.add_theme_font_size_override("font_size", 13)
 	shake.toggled.connect(func(on): Game.screen_shake = on; Game.save_settings())
 	opts.add_child(shake)
 	var music := CheckButton.new()
 	music.text = "Musique"
 	music.button_pressed = Game.music_on
-	music.add_theme_font_size_override("font_size", 15)
+	music.add_theme_font_size_override("font_size", 13)
 	music.toggled.connect(_on_music)
 	opts.add_child(music)
 
