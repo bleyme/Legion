@@ -11,6 +11,7 @@ func update(p: Player, _dt: float, i: PlayerInput) -> void:
 	i.shoot = Input.is_action_pressed(P + "shoot")
 	i.grenade = Input.is_action_just_pressed(P + "grenade")
 	i.reload = Input.is_action_just_pressed(P + "reload")
+	i.rope = Input.is_action_pressed(P + "rope")
 	i.swap = Input.is_action_just_pressed(P + "swap") or Game.wheel_swap
 	Game.wheel_swap = false
 	var to_mouse := p.get_global_mouse_position() - p.aim_origin()

@@ -53,6 +53,8 @@ var pickup_timer := 0.0
 var _last_pick: Node = null
 var ignored := {}          # pickup -> msec until which it is ignored
 var _jump_was_held := false
+var rope_hold := 0.0        # >0 while the bot is using its rope
+var rope_aim := Vector2.ZERO
 
 func _init(lvl := 1) -> void:
 	level = clampi(lvl, 0, PRESETS.size() - 1)
@@ -276,6 +278,26 @@ func _navigate(p: Player, dt: float, i: PlayerInput, arena: Node) -> void:
 		want_up = true
 
 	i.move = move
+	# Out of jet fuel while climbing: swing up on the rope instead.
+	if rope_hold > 0.0:
+		rope_hold -= dt
+		i.rope = true
+		if p.rope_state == 2:
+			i.jump_held = true   # reel in
+			if pos.y < goal.y + 10.0 or p.rope_len <= Player.ROPE_MIN + 2.0:
+				rope_hold = 0.0
+		if rope_hold <= 0.0:
+			i.rope = false
+		_jump_was_held = i.jump_held
+		return
+	i.rope = false
+	if want_up and not p.is_on_floor() and p.fuel < 25.0 and level >= 1 and p.rope_cd <= 0.0:
+		var probe := Vector2(clampf(goal.x - pos.x, -220.0, 220.0), -320.0)
+		var q := PhysicsRayQueryParameters2D.create(p.aim_origin(), p.aim_origin() + probe.normalized() * Player.ROPE_MAX, 1 | 4)
+		if not p.get_world_2d().direct_space_state.intersect_ray(q).is_empty():
+			rope_hold = 2.2
+			rope_aim = probe.normalized()
+			i.rope = true
 	# Jump on the ground, keep holding to jetpack when fuel allows.
 	if want_up:
 		if p.is_on_floor():
@@ -387,6 +409,8 @@ func _aim_and_fire(p: Player, dt: float, i: PlayerInput) -> void:
 		aim_angle = desired
 	aim_angle = rotate_toward(aim_angle, desired, float(cfg["turn"]) * dt)
 	i.aim = Vector2.from_angle(aim_angle)
+	if i.rope and p.rope_state == 0:
+		i.aim = rope_aim   # the rope is thrown where navigation wants it
 
 	if cfg["burst"]:
 		burst_cd -= dt

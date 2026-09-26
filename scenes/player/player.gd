@@ -30,6 +30,20 @@ const SPAWN_SHIELD    := 1.6
 const MAX_GRENADES    := 4
 const START_GRENADES  := 2
 
+# Ninja rope (Worms) — works together with the jetpack (Soldat).
+const ROPE_SPEED     := 2400.0
+const ROPE_MAX       := 580.0
+const ROPE_MIN       := 36.0
+const ROPE_REEL_IN   := 460.0
+const ROPE_REEL_OUT  := 340.0
+const ROPE_SWING     := 1250.0
+# Movement tech
+const WALL_JUMP      := Vector2(430.0, -560.0)
+const SLIDE_MIN_SPEED := 210.0
+const SLIDE_BOOST    := 110.0
+const SLIDE_FRICTION := 380.0
+const MOMENTUM_DECAY := 650.0
+
 const STAND_HEIGHT  := 58.0
 const CROUCH_HEIGHT := 40.0
 
@@ -59,6 +73,21 @@ var air_time := 0.0
 var jump_hold_time := 0.0
 var jet_armed := false
 var ground_jump := false
+# rope: 0 idle, 1 flying, 2 hooked
+var rope_state := 0
+var rope_tip := Vector2.ZERO
+var rope_dir := Vector2.RIGHT
+var rope_anchor := Vector2.ZERO
+var rope_len := 0.0
+var rope_flown := 0.0
+var rope_cd := 0.0
+# movement tech
+var wall_timer := 0.0
+var wall_normal := Vector2.ZERO
+var sliding := false
+var _prev_down := false
+var last_jump_press := -100000
+var style_cd := 0.0
 var drop_timer := 0.0
 var was_on_floor := true
 var fall_speed := 0.0
@@ -149,7 +178,7 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _update_crouch() -> void:
-	var want := input.down and is_on_floor() and not input.jump_pressed
+	var want := (input.down or sliding) and is_on_floor() and not input.jump_pressed
 	if want == crouching:
 		return
 	if not want:
@@ -183,13 +212,41 @@ func _move(delta: float) -> void:
 
 	drop_timer = maxf(0.0, drop_timer - delta)
 	set_collision_mask_value(3, drop_timer <= 0.0)
+	wall_timer -= delta
+	style_cd -= delta
+	_rope(delta)
+	var hooked := rope_state == 2
 
 	if input.jump_pressed:
+		last_jump_press = Time.get_ticks_msec()
 		jump_buffer = JUMP_BUFFER
-		if not on_floor and coyote <= 0.0:
-			jet_armed = true
+		if not on_floor and coyote <= 0.0 and not hooked:
+			if wall_timer > 0.0:
+				# Wall jump: kick off the wall we just touched.
+				velocity = Vector2(wall_normal.x * WALL_JUMP.x, WALL_JUMP.y)
+				wall_timer = 0.0
+				jump_buffer = 0.0
+				jump_hold_time = -0.1
+				SoundManager.play("jump", global_position, -8.0, 1.2)
+				Game.fx.dust(global_position + Vector2(-wall_normal.x * 10, 10), 6)
+				style("MURAL")
+			else:
+				jet_armed = true
 	else:
 		jump_buffer -= delta
+
+	# Slide: crouch while running fast keeps (and boosts) momentum.
+	var down_edge := input.down and not _prev_down
+	_prev_down = input.down
+	if on_floor and down_edge and absf(velocity.x) > SLIDE_MIN_SPEED and not sliding:
+		sliding = true
+		velocity.x += signf(velocity.x) * SLIDE_BOOST
+		SoundManager.play("land", global_position, -8.0, 1.4)
+		Game.fx.dust(global_position + Vector2(0, 28), 6)
+	if sliding and (absf(velocity.x) < 110.0 or (on_floor and not input.down)):
+		sliding = false
+	if sliding and on_floor and Engine.get_physics_frames() % 3 == 0:
+		Game.fx.dust(global_position + Vector2(-signf(velocity.x) * 8, 28), 1)
 
 	# Drop through one-way platforms: down + jump.
 	if input.down and input.jump_pressed and on_floor and _on_platform():
@@ -197,7 +254,10 @@ func _move(delta: float) -> void:
 		jump_buffer = 0.0
 		coyote = 0.0
 		position.y += 2
-	elif jump_buffer > 0.0 and coyote > 0.0:
+	elif jump_buffer > 0.0 and coyote > 0.0 and not hooked:
+		if sliding:
+			velocity.x *= 1.08   # slide-jump carries extra speed
+			sliding = false
 		velocity.y = JUMP_VELOCITY
 		ground_jump = true
 		jump_buffer = 0.0
@@ -219,7 +279,7 @@ func _move(delta: float) -> void:
 	if on_floor and velocity.y >= 0.0:
 		ground_jump = false
 
-	jetting = jet_armed and input.jump_held and fuel > 0.0 and not on_floor
+	jetting = jet_armed and input.jump_held and fuel > 0.0 and not on_floor and not hooked
 	if jetting:
 		fuel = maxf(0.0, fuel - FUEL_DRAIN * delta)
 		velocity.y = maxf(JET_MAX_UP, velocity.y - JET_ACCEL * delta)
@@ -231,25 +291,105 @@ func _move(delta: float) -> void:
 
 	velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL)
 
-	var speed := (CROUCH_SPEED if crouching else RUN_SPEED) * float(def["move_mult"])
+	var speed := (CROUCH_SPEED if crouching and not sliding else RUN_SPEED) * float(def["move_mult"])
 	var target := input.move * speed
-	var accel: float
-	if on_floor:
-		accel = GROUND_ACCEL if absf(target) > 0.01 else GROUND_FRICTION
+	if hooked and not on_floor:
+		# Swinging: steer the pendulum, no regular air control.
+		velocity.x += input.move * ROPE_SWING * delta
+		_rope_constraint(delta)
+	elif sliding:
+		velocity.x = move_toward(velocity.x, 0.0, SLIDE_FRICTION * delta)
 	else:
-		accel = AIR_ACCEL if absf(target) > 0.01 else AIR_FRICTION
-	# Keep momentum from explosions: only accelerate toward target if slower.
-	if absf(velocity.x) > speed and signf(velocity.x) == signf(target) and not on_floor:
-		accel = AIR_FRICTION
-	velocity.x = move_toward(velocity.x, target, accel * delta)
+		var accel: float
+		if on_floor:
+			accel = GROUND_ACCEL if absf(target) > 0.01 else GROUND_FRICTION
+		else:
+			accel = AIR_ACCEL if absf(target) > 0.01 else AIR_FRICTION
+		# Keep momentum (explosions, rope, slides): above running speed and
+		# pushing the same way, speed bleeds off slowly instead of snapping.
+		if absf(velocity.x) > speed and signf(velocity.x) == signf(target):
+			accel = AIR_FRICTION if not on_floor else MOMENTUM_DECAY
+		velocity.x = move_toward(velocity.x, target, accel * delta)
+		if hooked:
+			_rope_constraint(delta)
 
 	fall_speed = velocity.y
 	move_and_slide()
+	if is_on_wall() and not is_on_floor():
+		wall_timer = 0.14
+		wall_normal = get_wall_normal()
 
 	if is_on_floor() and not was_on_floor and fall_speed > 420.0:
 		SoundManager.play("land", global_position, -10.0)
 		Game.fx.dust(global_position + Vector2(0, 28), 8)
 	was_on_floor = is_on_floor()
+
+# --------------------------------------------------------------------------
+# Ninja rope
+# --------------------------------------------------------------------------
+
+func _rope(delta: float) -> void:
+	rope_cd -= delta
+	if rope_state != 0 and not input.rope:
+		_release_rope(true)
+		return
+	match rope_state:
+		0:
+			if input.rope and rope_cd <= 0.0:
+				rope_state = 1
+				rope_dir = input.aim.normalized() if input.aim != Vector2.ZERO else Vector2(facing, -1).normalized()
+				rope_tip = aim_origin()
+				rope_flown = 0.0
+				SoundManager.play("rope_fire", global_position, -8.0)
+		1:
+			var step := ROPE_SPEED * delta
+			var q := PhysicsRayQueryParameters2D.create(rope_tip, rope_tip + rope_dir * step, 1 | 4)
+			var r := get_world_2d().direct_space_state.intersect_ray(q)
+			if not r.is_empty():
+				rope_state = 2
+				rope_anchor = r["position"]
+				rope_len = maxf(ROPE_MIN, rope_anchor.distance_to(global_position))
+				SoundManager.play("rope_hit", rope_anchor, -6.0)
+				Game.fx.impact(rope_anchor, r["normal"], Color(0.8, 0.9, 1.0))
+				jet_armed = false
+				return
+			rope_tip += rope_dir * step
+			rope_flown += step
+			if rope_flown > ROPE_MAX:
+				rope_state = 0
+				rope_cd = 0.25
+		2:
+			if input.jump_held:
+				rope_len = maxf(ROPE_MIN, rope_len - ROPE_REEL_IN * delta)
+			elif input.down:
+				rope_len = minf(ROPE_MAX, rope_len + ROPE_REEL_OUT * delta)
+
+func _rope_constraint(delta: float) -> void:
+	var next := global_position + velocity * delta
+	var to := next - rope_anchor
+	var d := to.length()
+	if d <= rope_len or d < 0.001:
+		return
+	var n := to / d
+	var outward := velocity.dot(n)
+	if outward > 0.0:
+		velocity -= n * outward
+	# Pull back the overshoot so the rope stays taut.
+	velocity -= n * (d - rope_len) / delta * 0.5
+
+func _release_rope(voluntary: bool) -> void:
+	if rope_state == 2 and voluntary and velocity.length() > 650.0:
+		velocity *= 1.08
+		style("FRONDE !")
+	rope_state = 0
+	rope_cd = 0.12
+
+## Small gold text over the player for movement tricks (humans only).
+func style(text: String) -> void:
+	if not is_human or style_cd > 0.0:
+		return
+	style_cd = 0.6
+	Game.fx.popup(global_position + Vector2(0, -60), text, Color(1.0, 0.8, 0.25), 14)
 
 func _on_platform() -> bool:
 	if not Game.arena:
@@ -495,6 +635,10 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 	if shield > 0.0 and attacker != self:
 		Game.fx.impact(at, -push.normalized() if push != Vector2.ZERO else Vector2.UP, Color(0.5, 0.8, 1.0))
 		return
+	if push.y < -250.0 and Time.get_ticks_msec() - last_jump_press < 160:
+		push *= 1.4   # jumped right as the blast hit: perfect launch
+		style("ENVOL PARFAIT")
+		SoundManager.play("hitmark", global_position, -8.0, 0.7)
 	velocity += push
 	if push.y < -100.0:
 		ground_jump = false   # don't let a jump-cut eat a rocket jump
@@ -538,6 +682,8 @@ func die(killer: Node, weapon_id: String, headshot: bool, push := Vector2.ZERO) 
 	dead = true
 	health = 0.0
 	jetting = false
+	rope_state = 0
+	sliding = false
 	body.visible = false
 	gun_pivot.visible = false
 	shape_node.set_deferred("disabled", true)
@@ -558,6 +704,8 @@ func respawn(at: Vector2) -> void:
 	fuel = FUEL_MAX
 	dead = false
 	crouching = false
+	sliding = false
+	rope_state = 0
 	var cap: CapsuleShape2D = shape_node.shape
 	cap.height = STAND_HEIGHT
 	shape_node.position.y = 0
@@ -591,6 +739,12 @@ func respawn(at: Vector2) -> void:
 func _draw() -> void:
 	if dead:
 		return
+	if rope_state != 0:
+		var hand := gun_pivot.position + Vector2(6, 0).rotated(gun_pivot.rotation)
+		var tip := to_local(rope_anchor if rope_state == 2 else rope_tip)
+		draw_line(hand, tip, Color(0.05, 0.05, 0.06), 3.0)
+		draw_line(hand, tip, Color(0.75, 0.7, 0.55), 1.4)
+		draw_circle(tip, 3.5, Color(0.6, 0.62, 0.66))
 	var top := -44.0
 	# name tag
 	var name_w := _font.get_string_size(display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x

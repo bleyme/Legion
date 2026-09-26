@@ -156,6 +156,14 @@ func _build_library() -> void:
 	_streams["jump"]     = _mix(0.12, [
 		{"noise": 0.35, "lp0": 900.0, "lp1": 300.0, "decay": 4.0},
 	])
+	_streams["rope_fire"] = _mix(0.14, [
+		{"noise": 0.5, "lp0": 6000.0, "lp1": 2000.0, "decay": 3.0},
+		{"tone": 900.0, "tone1": 1500.0, "amp": 0.15, "decay": 3.0, "wave": "saw"},
+	])
+	_streams["rope_hit"] = _mix(0.1, [
+		{"tone": 1600.0, "tone1": 1200.0, "amp": 0.3, "decay": 7.0, "wave": "square"},
+		{"noise": 0.5, "lp0": 5000.0, "lp1": 1500.0, "decay": 8.0},
+	])
 	_streams["step"]     = _mix(0.06, [
 		{"noise": 0.5, "lp0": 1200.0, "lp1": 300.0, "decay": 7.0},
 	])

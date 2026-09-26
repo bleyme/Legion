@@ -5,6 +5,7 @@ extends RefCounted
 const P := "p2_"
 
 var facing := 1.0
+var _rope_was := false
 var _wobble := 0.0
 var _t := 0.0
 
@@ -17,6 +18,7 @@ func update(p: Player, dt: float, i: PlayerInput) -> void:
 	i.shoot = Input.is_action_pressed(P + "shoot")
 	i.grenade = Input.is_action_just_pressed(P + "grenade")
 	i.reload = Input.is_action_just_pressed(P + "reload")
+	i.rope = Input.is_action_pressed(P + "rope")
 	i.swap = Input.is_action_just_pressed(P + "swap")
 	if absf(i.move) > 0.1:
 		facing = signf(i.move)
@@ -29,3 +31,7 @@ func update(p: Player, dt: float, i: PlayerInput) -> void:
 	else:
 		var tilt := -0.25 if i.jump_held else 0.0
 		i.aim = Vector2(facing, tilt).normalized()
+	# The rope is thrown up and forward, whatever the auto-aim is locked on.
+	if i.rope and not _rope_was:
+		i.aim = Vector2(facing * 0.55, -1.0).normalized()
+	_rope_was = i.rope

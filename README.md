@@ -46,8 +46,23 @@ Les touches sont physiques : sur un clavier AZERTY, « WASD » correspond à **Z
 | Grenade | clic droit ou G | Maj droit, Pavé 1 | LT / L1 |
 | Recharger | R | Retour arrière, Pavé 3 | X |
 | Changer d'arme / ramasser au sol | A ou E | Pavé 2, « . » | Y |
+| Corde ninja (maintenir ; saut = remonter, bas = descendre) | F, Maj gauche, bouton souris 4 | Pavé 4, « / », Fin | LB / L1 |
 | Pause | Échap ou P | Échap ou P | Start |
 | Plein écran | F11 | F11 | — |
+
+## Mouvements avancés
+
+Faciles à prendre en main, longs à maîtriser :
+
+- **Corde ninja** : on s'accroche partout, on se balance, on la lâche au sommet
+  pour être projeté (« Fronde ! »). Elle se combine avec le jetpack.
+- **Saut mural** : sauter en touchant un mur rebondit dessus.
+- **Glissade** : s'accroupir en pleine course donne un coup de vitesse ; sauter
+  pendant la glissade garde l'élan.
+- **Élan conservé** : la vitesse d'une explosion, d'une corde ou d'une glissade
+  ne retombe que lentement au sol.
+- **Envol parfait** : sauter juste au moment où une explosion vous touche
+  vous propulse 40 % plus loin.
 
 ## Armes
 

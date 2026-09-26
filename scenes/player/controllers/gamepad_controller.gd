@@ -1,6 +1,6 @@
 extends RefCounted
 ## Twin-stick gamepad: left stick moves, right stick aims (with light aim
-## assist), RT shoots, LT/LB grenade, A jump/jetpack, X reload, Y swap.
+## assist), RT shoots, LT grenade, LB ninja rope, A jump/jetpack, X reload, Y swap.
 
 var device := 0
 var _last_aim := Vector2.ZERO
@@ -29,8 +29,8 @@ func update(p: Player, _dt: float, i: PlayerInput) -> void:
 	i.down = ly > 0.6 or Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_DOWN)
 	i.shoot = Input.get_joy_axis(device, JOY_AXIS_TRIGGER_RIGHT) > 0.35 \
 		or Input.is_joy_button_pressed(device, JOY_BUTTON_RIGHT_SHOULDER)
-	var nade := Input.get_joy_axis(device, JOY_AXIS_TRIGGER_LEFT) > 0.35 \
-		or Input.is_joy_button_pressed(device, JOY_BUTTON_LEFT_SHOULDER)
+	var nade := Input.get_joy_axis(device, JOY_AXIS_TRIGGER_LEFT) > 0.35
+	i.rope = Input.is_joy_button_pressed(device, JOY_BUTTON_LEFT_SHOULDER)
 	i.grenade = _edge("nade", nade)
 	i.reload = _edge("reload", Input.is_joy_button_pressed(device, JOY_BUTTON_X))
 	i.swap = _edge("swap", Input.is_joy_button_pressed(device, JOY_BUTTON_Y))

@@ -10,6 +10,7 @@ var shoot := false
 var grenade := false         # edge
 var reload := false          # edge
 var swap := false            # edge
+var rope := false            # held: fire / stay hooked
 var aim := Vector2.RIGHT     # normalised
 
 func clear_edges() -> void:

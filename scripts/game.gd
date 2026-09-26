@@ -156,6 +156,7 @@ func _register_inputs() -> void:
 	_bind("p1_grenade", [_mouse(MOUSE_BUTTON_RIGHT), _key(KEY_G)])
 	_bind("p1_reload",  [_key(KEY_R)])
 	_bind("p1_swap",    [_key(KEY_Q), _key(KEY_E), _mouse(MOUSE_BUTTON_MIDDLE)])
+	_bind("p1_rope",    [_key(KEY_F), _key(KEY_SHIFT, KEY_LOCATION_LEFT), _mouse(MOUSE_BUTTON_XBUTTON1)])
 
 	_bind("p2_left",    [_key(KEY_LEFT)])
 	_bind("p2_right",   [_key(KEY_RIGHT)])
@@ -165,6 +166,7 @@ func _register_inputs() -> void:
 	_bind("p2_grenade", [_key(KEY_SHIFT, KEY_LOCATION_RIGHT), _key(KEY_KP_1)])
 	_bind("p2_reload",  [_key(KEY_BACKSPACE), _key(KEY_KP_3)])
 	_bind("p2_swap",    [_key(KEY_KP_2), _key(KEY_PERIOD)])
+	_bind("p2_rope",    [_key(KEY_KP_4), _key(KEY_SLASH), _key(KEY_END)])
 
 	_bind("pause",             [_key(KEY_ESCAPE), _key(KEY_P), _joy(JOY_BUTTON_START)])
 	_bind("toggle_fullscreen", [_key(KEY_F11)])

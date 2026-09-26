@@ -49,6 +49,7 @@ var countdown := 0.0
 var _intro_sub := ""
 var _last_count := -1
 var _prev_best := 0
+var _last_weapon := ""
 
 func _ready() -> void:
 	_demo = Game.demo
@@ -300,6 +301,7 @@ func _on_player_died(victim: Player, killer: Node, weapon_id: String, headshot: 
 	victim.respawn_left = RESPAWN_DELAY
 	victim.killed_by = ""
 	var k := killer as Player
+	_last_weapon = weapon_id
 	_hud.add_kill(killer, victim, weapon_id, headshot)
 	if match_over:
 		return
@@ -462,6 +464,10 @@ func _announce_kill(k: Player, victim: Player, headshot: bool) -> void:
 		var names := {3: "EN SÉRIE", 5: "DÉCHAÎNÉ", 8: "IMPARABLE", 12: "LÉGENDAIRE"}
 		_hud.announce(names[k.streak], col, "%s : %d frags d'affilée" % [k.display_name, k.streak])
 		SoundManager.play("announce", Vector2.INF, -6.0)
+	elif k.is_human and not victim.is_on_floor() and WeaponData.get_def(_last_weapon)["kind"] in ["rocket", "grenade"]:
+		_hud.announce("TIR AÉRIEN !", Color(0.5, 0.85, 1.0), "", 1.2)
+	elif k.is_human and not k.is_on_floor() and k.rope_state == 2:
+		_hud.announce("TARZAN !", Color(0.6, 1.0, 0.5), "frag en pleine voltige", 1.2)
 	elif headshot and k.is_human:
 		_hud.announce("TIR À LA TÊTE", Color(1.0, 0.45, 0.3), "", 1.0)
 	if victim.streak >= 3:
