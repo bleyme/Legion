@@ -1,4 +1,5 @@
 extends Node2D
+const Player := preload("res://scenes/player/player.gd")
 ## Owns every projectile in flight. Each physics tick a projectile sweeps a ray
 ## from its previous position to its next one, so fast bullets never tunnel
 ## through thin platforms or players.

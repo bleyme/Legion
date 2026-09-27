@@ -1,4 +1,6 @@
 extends RefCounted
+const Player := preload("res://scenes/player/player.gd")
+const PlayerInput := preload("res://scripts/player_input.gd")
 ## Player 1: move with WASD/ZQSD, aim with the mouse.
 
 const P := "p1_"

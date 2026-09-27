@@ -1,11 +1,11 @@
-class_name Player
 extends CharacterBody2D
+const PlayerInput := preload("res://scripts/player_input.gd")
 ## A soldier. Movement is momentum based (so explosions and recoil can push
 ## you around), with coyote time, jump buffering, variable jump height,
 ## a jetpack, crouching and dropping through catwalks. Input comes from a
 ## controller object (keyboard, gamepad or bot) through a PlayerInput.
 
-signal died(victim: Player, killer: Node, weapon_id: String, headshot: bool)
+signal died(victim: CharacterBody2D, killer: Node, weapon_id: String, headshot: bool)
 
 const RUN_SPEED       := 270.0
 const CROUCH_SPEED    := 110.0
@@ -446,8 +446,8 @@ func make_boss(kind: String) -> void:
 	_boss_cd2 = 6.0
 	_refresh_gun()
 
-func _nearest_enemy(max_d: float) -> Player:
-	var best: Player = null
+func _nearest_enemy(max_d: float) -> CharacterBody2D:
+	var best: CharacterBody2D = null
 	var bd := max_d
 	for o in Game.active_players():
 		if o.dead or not Game.is_enemy(self, o):
@@ -760,6 +760,9 @@ func give_grenades(n: int) -> bool:
 # Damage & death
 # --------------------------------------------------------------------------
 
+func _is_player(o: Variant) -> bool:
+	return o is CharacterBody2D and is_instance_valid(o) and o.get_script() == get_script()
+
 func rumble(strength: float, duration: float) -> void:
 	if pad_device >= 0:
 		Input.start_joy_vibration(pad_device, strength * 0.6, strength, duration)
@@ -772,9 +775,9 @@ func is_head_hit(p: Vector2) -> bool:
 func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String, headshot: bool, at: Vector2) -> void:
 	if dead:
 		return
-	if attacker is Player and attacker != self and not Game.is_enemy(attacker, self):
+	if _is_player(attacker) and attacker != self and not Game.is_enemy(attacker, self):
 		return   # no friendly fire
-	if is_human and Game.world and Game.world.survival and attacker is Player and not attacker.is_human:
+	if is_human and Game.world and Game.world.survival and _is_player(attacker) and not attacker.is_human:
 		amount *= 0.5   # horde mode: the heroes are tougher than the grunts
 	if shield > 0.0 and attacker != self:
 		Game.fx.impact(at, -push.normalized() if push != Vector2.ZERO else Vector2.UP, Color(0.5, 0.8, 1.0))
@@ -800,7 +803,7 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 			hurt_dir_time = 1.2
 	var dir := push.normalized() if push != Vector2.ZERO else Vector2.UP
 	Game.fx.blood(at, dir, 6 if amount < 30 else 14)
-	if attacker is Player and attacker.is_human and attacker != self:
+	if _is_player(attacker) and attacker.is_human and attacker != self:
 		var popup_col := Color(1.0, 0.9, 0.3) if not headshot else Color(1.0, 0.35, 0.2)
 		Game.fx.popup(at + Vector2(0, -16), str(int(round(amount))) + ("!" if headshot else ""), popup_col, 20 if headshot else 15)
 	SoundManager.play("hit", at, -6.0)
@@ -809,7 +812,7 @@ func take_damage(amount: float, push: Vector2, attacker: Node, weapon_id: String
 		rumble(clampf(amount / 100.0, 0.2, 1.0), 0.18)
 		if Game.hud:
 			Game.hud.damage_flash(self)
-	var shooter := attacker as Player
+	var shooter: CharacterBody2D = attacker if _is_player(attacker) else null
 	if shooter and shooter != self:
 		shooter.hits += 1
 		shooter.hit_marker = 0.18

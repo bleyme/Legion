@@ -1,4 +1,8 @@
 extends Node2D
+const Player := preload("res://scenes/player/player.gd")
+const PlayerInput := preload("res://scripts/player_input.gd")
+const MapData := preload("res://scripts/maps.gd")
+const UITheme := preload("res://scripts/ui_theme.gd")
 ## Match controller: builds the arena and players from Game settings, runs the
 ## deathmatch rules (frags, timer, respawns, streaks, announcer), and owns the
 ## pause and end-of-match screens. Also runs the bot-only demo behind the menu.

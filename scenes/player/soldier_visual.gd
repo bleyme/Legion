@@ -1,4 +1,5 @@
 extends Node2D
+const Player := preload("res://scenes/player/player.gd")
 ## Procedural soldier: team-coloured armour, jetpack, walk cycle, crouch,
 ## airborne tuck and hit flash. Origin is the body centre, feet at y = 29.
 

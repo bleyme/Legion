@@ -1,4 +1,5 @@
 extends Camera2D
+const Player := preload("res://scenes/player/player.gd")
 ## Shared camera. With one human it follows them with aim look-ahead; with
 ## several humans (or none, in the menu demo) it frames everyone. Trauma-based
 ## screen shake decays smoothly.

@@ -1,4 +1,3 @@
-class_name WeaponArt
 ## Vector art for every weapon, drawn pointing +X with the grip near the origin.
 ## Shared by the held gun and the pickups so both always match.
 

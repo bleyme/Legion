@@ -1,4 +1,6 @@
 extends Node
+const MapData := preload("res://scripts/maps.gd")
+const UITheme := preload("res://scripts/ui_theme.gd")
 ## Title screen. A bot-only match runs behind the UI as an attract mode.
 ## Players pick who controls each slot (keyboard+mouse, second keyboard,
 ## gamepads, or bots of four skill levels), the arena and the match rules.

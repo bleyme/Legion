@@ -1,4 +1,7 @@
 extends Control
+const Player := preload("res://scenes/player/player.gd")
+const WeaponArt := preload("res://scripts/weapon_art.gd")
+const UITheme := preload("res://scripts/ui_theme.gd")
 ## Everything drawn on screen during a match: player cards, crosshair,
 ## scoreboard, kill feed, announcer, timer, damage vignette and off-screen
 ## enemy arrows. Drawn immediately each frame (no per-widget nodes).

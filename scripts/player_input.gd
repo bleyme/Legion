@@ -1,4 +1,3 @@
-class_name PlayerInput
 extends RefCounted
 ## One frame of intent for a Player, filled by a controller (human or bot).
 

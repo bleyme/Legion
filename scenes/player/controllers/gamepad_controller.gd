@@ -1,4 +1,7 @@
 extends RefCounted
+const Player := preload("res://scenes/player/player.gd")
+const PlayerInput := preload("res://scripts/player_input.gd")
+const AimAssist := preload("res://scripts/aim_assist.gd")
 ## Twin-stick gamepad: left stick moves, right stick aims (with light aim
 ## assist), RT shoots, LT grenade, LB ninja rope, A jump/jetpack, X reload, Y swap.
 

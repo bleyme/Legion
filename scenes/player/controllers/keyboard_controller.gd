@@ -1,4 +1,7 @@
 extends RefCounted
+const Player := preload("res://scenes/player/player.gd")
+const PlayerInput := preload("res://scripts/player_input.gd")
+const AimAssist := preload("res://scripts/aim_assist.gd")
 ## Player 2 on the same keyboard: arrows to move, automatic aim at the closest
 ## visible enemy (otherwise straight ahead).
 

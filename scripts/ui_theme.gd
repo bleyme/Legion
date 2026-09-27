@@ -1,4 +1,3 @@
-class_name UITheme
 ## Shared look for menus: dark translucent panels, amber accent.
 
 const ACCENT := Color(1.0, 0.72, 0.2)

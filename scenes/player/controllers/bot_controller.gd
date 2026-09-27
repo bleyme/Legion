@@ -1,4 +1,7 @@
 extends RefCounted
+const Player := preload("res://scenes/player/player.gd")
+const PlayerInput := preload("res://scripts/player_input.gd")
+const AimAssist := preload("res://scripts/aim_assist.gd")
 ## AI soldier. Uses the arena's rectangle layout to navigate (jump, jetpack
 ## around ceilings, drop through catwalks), keeps a preferred fighting range
 ## per weapon, strafes, leads its shots, grabs better weapons and health, and

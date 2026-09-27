@@ -1,4 +1,3 @@
-class_name MapData
 ## Arena layouts. Coordinates are in pixels, interior starts at (0, 0).
 ## solids    - full collision blocks (Rect2)
 ## platforms - one-way catwalks you can jump through / drop through (Rect2)

@@ -1,4 +1,6 @@
 extends Node2D
+const Player := preload("res://scenes/player/player.gd")
+const WeaponArt := preload("res://scripts/weapon_art.gd")
 ## Weapon / health / grenade pickup. Map pickups respawn; weapons dropped by
 ## dead players fall to the floor and vanish after a while.
 ## Walking over a weapon takes it if your primary slot is empty (or tops up

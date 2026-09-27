@@ -1,4 +1,4 @@
-class_name AimAssist
+const Player := preload("res://scenes/player/player.gd")
 ## Target finding shared by keyboard/gamepad aim assist and bots.
 
 static func has_los(from: Node2D, a: Vector2, b: Vector2) -> bool:
