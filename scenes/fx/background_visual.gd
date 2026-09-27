@@ -1,58 +1,95 @@
 extends Node2D
+## Screen-space parallax backdrop (lives in a CanvasLayer behind the world).
+
+const TILE := 1800.0
+
+var theme: Dictionary
+var _far: Array = []    # [x, w, h]
+var _near: Array = []   # [x, w, h, windows:Array]
+var _stars: Array = []  # [pos, size, phase]
+var _time := 0.0
+
+func setup(t: Dictionary) -> void:
+	theme = t
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1337
+	var x := 0.0
+	while x < TILE:
+		var w := rng.randf_range(50, 130)
+		_far.append([x, w, rng.randf_range(90, 260)])
+		x += w + rng.randf_range(-10, 20)
+	x = 0.0
+	while x < TILE:
+		var w := rng.randf_range(70, 160)
+		var h := rng.randf_range(120, 380)
+		var windows := []
+		var cols := int((w - 12) / 14.0)
+		var rows := int((h - 24) / 20.0)
+		var lit := rng.randf_range(0.05, 0.3)
+		for cx in cols:
+			for cy in rows:
+				if rng.randf() < lit:
+					windows.append(Vector2(8 + cx * 14, 14 + cy * 20))
+		_near.append([x, w, h, windows])
+		x += w + rng.randf_range(20, 90)
+	for i in 90:
+		_stars.append([Vector2(rng.randf(), rng.randf() * 0.6), rng.randf_range(0.8, 2.0), rng.randf() * TAU])
+
+func _process(delta: float) -> void:
+	_time += delta
+	queue_redraw()
 
 func _draw() -> void:
-	var W := 1280.0
-	var H := 720.0
+	if theme.is_empty():
+		return
+	var vs := get_viewport_rect().size
+	var cam := Vector2.ZERO
+	if Game.camera:
+		cam = Game.camera.get_screen_center_position()
+	var top: Color = theme["sky_top"]
+	var bottom: Color = theme["sky_bottom"]
+	draw_polygon(PackedVector2Array([Vector2.ZERO, Vector2(vs.x, 0), vs, Vector2(0, vs.y)]),
+		PackedColorArray([top, top, bottom, bottom]))
 
-	# Sky gradient (approximated with bands)
-	draw_rect(Rect2(0, 0, W, H * 0.4), Color(0.04, 0.06, 0.14), true)
-	draw_rect(Rect2(0, H * 0.4, W, H * 0.35), Color(0.08, 0.10, 0.20), true)
-	draw_rect(Rect2(0, H * 0.75, W, H * 0.25), Color(0.10, 0.13, 0.22), true)
+	for s in _stars:
+		var p: Vector2 = s[0] * vs
+		p.x = fposmod(p.x - cam.x * 0.02, vs.x)
+		var a := 0.35 + 0.35 * sin(_time * 1.5 + s[2])
+		draw_rect(Rect2(p, Vector2(s[1], s[1])), Color(1, 1, 1, a))
 
-	# Moon
-	draw_circle(Vector2(1100, 85), 40, Color(0.88, 0.85, 0.72))
-	draw_circle(Vector2(1116, 78), 37, Color(0.04, 0.06, 0.14))
+	if theme.get("moon", false):
+		var mp := Vector2(vs.x * 0.82 - cam.x * 0.01, vs.y * 0.16)
+		draw_texture_rect(Game.soft_tex, Rect2(mp - Vector2(120, 120), Vector2(240, 240)), false, Color(0.9, 0.9, 1.0, 0.18))
+		draw_circle(mp, 38, Color(0.92, 0.9, 0.8))
+		draw_circle(mp + Vector2(12, -6), 34, top.lerp(bottom, 0.1))
+	else:
+		# furnace glow on the horizon
+		var c: Color = theme["accent"]
+		c.a = 0.35
+		var r := vs.x * 0.75
+		draw_texture_rect(Game.soft_tex, Rect2(Vector2(vs.x * 0.5 - r, vs.y * 1.1 - r), Vector2(r, r) * 2.0), false, c)
 
-	# Stars
-	var stars := [
-		Vector2(80, 50), Vector2(200, 30), Vector2(360, 70), Vector2(520, 25),
-		Vector2(650, 55), Vector2(780, 40), Vector2(920, 65), Vector2(1050, 35),
-		Vector2(1180, 70), Vector2(140, 110), Vector2(440, 90), Vector2(860, 100),
-	]
-	for s in stars:
-		draw_circle(s, 1.5, Color(1, 1, 1, randf_range(0.4, 0.9)))
+	var yshift := -cam.y * 0.04
+	_draw_skyline(_far, theme["skyline"], vs, cam.x * 0.08, vs.y * 0.92 + yshift, false)
+	_draw_skyline(_near, theme["skyline_near"], vs, cam.x * 0.18, vs.y * 1.02 + yshift * 1.8, true)
 
-	# Distant buildings - left
-	_draw_building(0,   440, 60,  280, Color(0.07, 0.09, 0.14))
-	_draw_building(20,  400, 30,  320, Color(0.06, 0.08, 0.13))
-	_draw_building(55,  460, 45,  260, Color(0.07, 0.09, 0.14))
-	_draw_building(90,  420, 28,  300, Color(0.06, 0.08, 0.13))
-	_draw_building(110, 450, 55,  270, Color(0.07, 0.09, 0.14))
-	_draw_building(150, 380, 38,  340, Color(0.06, 0.08, 0.13))
-	# Antenna
-	draw_rect(Rect2(164, 358, 3, 24), Color(0.05, 0.07, 0.12), true)
+	var fog: Color = bottom
+	fog.a = 0.35
+	draw_rect(Rect2(0, vs.y * 0.82, vs.x, vs.y * 0.18), fog)
 
-	# Distant buildings - right
-	_draw_building(1090, 445, 65, 280, Color(0.07, 0.09, 0.14))
-	_draw_building(1128, 408, 42, 315, Color(0.06, 0.08, 0.13))
-	_draw_building(1162, 438, 52, 282, Color(0.07, 0.09, 0.14))
-	_draw_building(1200, 418, 45, 302, Color(0.06, 0.08, 0.13))
-	_draw_building(1225, 455, 55, 265, Color(0.07, 0.09, 0.14))
-
-	# Window lights
-	var windows := [
-		[Vector2(28, 415), Color(0.90, 0.80, 0.30, 0.6)],
-		[Vector2(160, 398), Color(0.90, 0.80, 0.30, 0.5)],
-		[Vector2(115, 435), Color(0.50, 0.70, 1.00, 0.5)],
-		[Vector2(1135, 422), Color(0.90, 0.80, 0.30, 0.5)],
-		[Vector2(1168, 450), Color(0.50, 0.70, 1.00, 0.5)],
-		[Vector2(1205, 432), Color(0.90, 0.80, 0.30, 0.6)],
-	]
-	for w in windows:
-		draw_rect(Rect2(w[0], Vector2(6, 4)), w[1], true)
-
-	# Ground fog
-	draw_rect(Rect2(0, 660, W, 60), Color(0.08, 0.10, 0.18, 0.5), true)
-
-func _draw_building(x: float, y: float, w: float, h: float, col: Color) -> void:
-	draw_rect(Rect2(x, y, w, h), col, true)
+func _draw_skyline(list: Array, col: Color, vs: Vector2, scroll: float, base: float, windows: bool) -> void:
+	var off := -fposmod(scroll, TILE)
+	var win: Color = theme["window"]
+	while off < vs.x:
+		for b in list:
+			var bx: float = off + b[0]
+			if bx > vs.x or bx + b[1] < 0:
+				continue
+			var r := Rect2(bx, base - b[2], b[1], b[2] + 200)
+			draw_rect(r, col)
+			if windows:
+				for w in b[3]:
+					var wc := win
+					wc.a = 0.3 + 0.12 * sin(_time * 0.5 + w.x * 0.1 + w.y)
+					draw_rect(Rect2(r.position + w, Vector2(5, 4)), wc)
+		off += TILE

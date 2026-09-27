@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://player001"]
+[gd_scene load_steps=6 format=3 uid="uid://player001"]
 
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1"]
 [ext_resource type="Script" path="res://scenes/player/soldier_visual.gd" id="2"]
@@ -6,19 +6,13 @@
 [ext_resource type="Script" path="res://scenes/player/arm_visual.gd" id="4"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_1"]
-radius = 12.0
-height = 30.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_health"]
-bg_color = Color(0.15, 0.75, 0.15, 1.0)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fuel"]
-bg_color = Color(0.2, 0.5, 1.0, 1.0)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bg"]
-bg_color = Color(0.05, 0.05, 0.05, 0.75)
+radius = 11.0
+height = 58.0
 
 [node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 5
+floor_snap_length = 6.0
 script = ExtResource("1")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
@@ -30,54 +24,9 @@ script = ExtResource("2")
 [node name="GunPivot" type="Node2D" parent="."]
 position = Vector2(0, -10)
 
-[node name="Muzzle" type="Marker2D" parent="GunPivot"]
-position = Vector2(39, 0)
-
 [node name="GunSprite" type="Node2D" parent="GunPivot"]
 script = ExtResource("3")
 
 [node name="GunArm" type="Node2D" parent="GunPivot"]
 z_index = 1
 script = ExtResource("4")
-
-[node name="HUD" type="CanvasLayer" parent="."]
-layer = 1
-
-[node name="HealthBar" type="ProgressBar" parent="HUD"]
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 210.0
-offset_bottom = 28.0
-max_value = 100.0
-value = 100.0
-show_percentage = false
-theme_override_styles/fill = SubResource("StyleBoxFlat_health")
-theme_override_styles/background = SubResource("StyleBoxFlat_bg")
-
-[node name="FuelBar" type="ProgressBar" parent="HUD"]
-offset_left = 10.0
-offset_top = 34.0
-offset_right = 210.0
-offset_bottom = 48.0
-max_value = 100.0
-value = 100.0
-show_percentage = false
-theme_override_styles/fill = SubResource("StyleBoxFlat_fuel")
-theme_override_styles/background = SubResource("StyleBoxFlat_bg")
-
-[node name="AmmoLabel" type="Label" parent="HUD"]
-offset_left = 10.0
-offset_top = 52.0
-offset_right = 210.0
-offset_bottom = 70.0
-text = "30 / 150"
-theme_override_colors/font_color = Color(0.9, 0.85, 0.6, 1.0)
-
-[node name="WeaponLabel" type="Label" parent="HUD"]
-offset_left = 10.0
-offset_top = 72.0
-offset_right = 210.0
-offset_bottom = 88.0
-text = "Assault Rifle"
-theme_override_colors/font_color = Color(0.7, 0.9, 0.7, 1.0)
-theme_override_font_sizes/font_size = 11
